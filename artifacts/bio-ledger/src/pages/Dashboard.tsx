@@ -5,8 +5,8 @@ import { Activity, Brain, Clock, MousePointer2, ShieldCheck, HardDrive, LogOut }
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
 import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
-import { cn, generateMockSignature, generateMockCid, truncateHash } from '@/lib/utils';
-// @ts-ignore - Assuming standard React Query generated hooks from Orval
+import { cn, truncateHash } from '@/lib/utils';
+import { signWorkReceipt, storeToFilecoin } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
 
 interface DashboardProps {
@@ -46,23 +46,23 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
     setIsFiling(true);
 
     const focusScore = Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60));
-    const signature = generateMockSignature();
-    
-    // Simulate Synapse SDK Store-Pull-Commit delay
-    await new Promise(resolve => setTimeout(resolve, 2500));
-    const cid = generateMockCid();
+    const stats = {
+      durationSeconds: POMODORO_TIME,
+      apm,
+      hrv,
+      strain,
+      focusScore,
+    };
+
+    const signedReceipt = await signWorkReceipt(nullifierHash, stats);
+    const cid = await storeToFilecoin(signedReceipt);
+    signedReceipt.receiptCid = cid;
 
     const payload = {
       nullifierHash,
-      sessionStats: {
-        durationSeconds: POMODORO_TIME,
-        apm,
-        hrv,
-        strain,
-        focusScore
-      },
-      companionSignature: signature,
-      receiptCid: cid
+      sessionStats: stats,
+      companionSignature: signedReceipt.companionSignature,
+      receiptCid: cid,
     };
 
     createReceiptMutation.mutate(
@@ -73,10 +73,10 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
           setTimeLeft(POMODORO_TIME);
           refetchReceipts();
         },
-        onError: (err) => {
+        onError: (err: unknown) => {
           console.error("Failed to save receipt", err);
           setIsFiling(false);
-        }
+        },
       }
     );
   };

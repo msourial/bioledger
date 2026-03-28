@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { IDKitRequestWidget, useIDKitRequest } from '@worldcoin/idkit';
+import { IDKitRequestWidget } from '@worldcoin/idkit';
+import type { IDKitResult } from '@worldcoin/idkit';
 import { deviceLegacy } from '@worldcoin/idkit';
 import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
 import { Lock, ShieldCheck } from 'lucide-react';
@@ -17,11 +18,17 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     onVerify("0x" + Math.random().toString(16).slice(2, 10) + "dev_hash_override");
   };
 
-  const onSuccess = (result: any) => {
+  const onSuccess = (result: IDKitResult) => {
     setIsVerifying(true);
     setTimeout(() => {
-      const hash = result?.nullifier_hash || result?.nullifierHash || "verified_nullifier_hash";
-      onVerify(hash);
+      const response = result.responses[0];
+      const nullifier =
+        "nullifier" in response
+          ? response.nullifier
+          : "session_nullifier" in response
+          ? response.session_nullifier[0]
+          : result.nonce;
+      onVerify(nullifier);
     }, 1500);
   };
 
@@ -80,7 +87,15 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               <IDKitRequestWidget
                 app_id={"app_staging_bio_ledger_dev" as `app_${string}`}
                 action="bio-ledger-verify"
-                preset={deviceLegacy}
+                rp_context={{
+                  rp_id: "rp_bio_ledger_dev",
+                  nonce: "hackathon-dev-nonce",
+                  created_at: Math.floor(Date.now() / 1000),
+                  expires_at: Math.floor(Date.now() / 1000) + 3600,
+                  signature: "0x00",
+                }}
+                allow_legacy_proofs={true}
+                preset={deviceLegacy()}
                 open={isOpen}
                 onOpenChange={setIsOpen}
                 onSuccess={onSuccess}
