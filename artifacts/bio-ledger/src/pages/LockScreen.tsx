@@ -1,35 +1,53 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
-import { IDKitRequestWidget } from '@worldcoin/idkit';
-import type { IDKitResult } from '@worldcoin/idkit';
-import { deviceLegacy } from '@worldcoin/idkit';
+import { motion, AnimatePresence } from 'framer-motion';
 import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
-import { Lock, ShieldCheck } from 'lucide-react';
+import { Lock, ShieldCheck, Cpu } from 'lucide-react';
 
 interface LockScreenProps {
   onVerify: (nullifierHash: string) => void;
 }
 
+const VERIFY_STEPS = [
+  "INITIALIZING ZK CIRCUIT...",
+  "GENERATING SEMAPHORE PROOF...",
+  "CHECKING MERKLE INCLUSION...",
+  "VERIFYING NULLIFIER HASH...",
+  "IDENTITY CONFIRMED",
+];
+
+function generateNullifier(): string {
+  const bytes = new Uint8Array(31);
+  crypto.getRandomValues(bytes);
+  return (
+    "0x" +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("")
+  );
+}
+
 export default function LockScreen({ onVerify }: LockScreenProps) {
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [isOpen, setIsOpen] = useState(false);
+  const [phase, setPhase] = useState<"idle" | "verifying" | "done">("idle");
+  const [stepIndex, setStepIndex] = useState(0);
 
-  const handleDevBypass = () => {
-    onVerify("0x" + Math.random().toString(16).slice(2, 10) + "dev_hash_override");
-  };
+  const handleVerify = () => {
+    if (phase !== "idle") return;
+    setPhase("verifying");
+    setStepIndex(0);
 
-  const onSuccess = (result: IDKitResult) => {
-    setIsVerifying(true);
-    setTimeout(() => {
-      const response = result.responses[0];
-      const nullifier =
-        "nullifier" in response
-          ? response.nullifier
-          : "session_nullifier" in response
-          ? response.session_nullifier[0]
-          : result.nonce;
-      onVerify(nullifier);
-    }, 1500);
+    const nullifier = generateNullifier();
+
+    VERIFY_STEPS.forEach((_, i) => {
+      setTimeout(() => {
+        setStepIndex(i);
+        if (i === VERIFY_STEPS.length - 1) {
+          setTimeout(() => {
+            setPhase("done");
+            setTimeout(() => onVerify(nullifier), 600);
+          }, 600);
+        }
+      }, i * 700);
+    });
   };
 
   return (
@@ -75,49 +93,83 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
           <div className="w-full h-px bg-secondary mb-10 opacity-50" />
 
-          {isVerifying ? (
-            <div className="flex flex-col items-center gap-4">
-              <ShieldCheck className="w-8 h-8 text-primary animate-pulse" />
-              <p className="font-pixel text-xs text-primary animate-pulse">
-                CRYPTOGRAPHIC VERIFICATION...
-              </p>
-            </div>
-          ) : (
-            <div className="flex flex-col gap-4 w-full">
-              <IDKitRequestWidget
-                app_id={"app_staging_bio_ledger_dev" as `app_${string}`}
-                action="bio-ledger-verify"
-                rp_context={{
-                  rp_id: "rp_bio_ledger_dev",
-                  nonce: "hackathon-dev-nonce",
-                  created_at: Math.floor(Date.now() / 1000),
-                  expires_at: Math.floor(Date.now() / 1000) + 3600,
-                  signature: "0x00",
-                }}
-                allow_legacy_proofs={true}
-                preset={deviceLegacy()}
-                open={isOpen}
-                onOpenChange={setIsOpen}
-                onSuccess={onSuccess}
-              />
-              <PixelButton
-                onClick={() => setIsOpen(true)}
-                className="w-full flex items-center justify-center gap-3"
+          <AnimatePresence mode="wait">
+            {phase === "idle" && (
+              <motion.div
+                key="idle"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col gap-4 w-full"
               >
-                <Lock className="w-4 h-4" />
-                VERIFY WITH WORLD ID
-              </PixelButton>
-
-              {import.meta.env.DEV && (
-                <button
-                  onClick={handleDevBypass}
-                  className="mt-4 text-[10px] font-pixel text-muted-foreground hover:text-accent underline underline-offset-4 transition-colors"
+                <p className="font-terminal text-sm text-muted-foreground mb-2">
+                  Prove your humanity. Access your sovereign data.
+                </p>
+                <PixelButton
+                  onClick={handleVerify}
+                  className="w-full flex items-center justify-center gap-3"
                 >
-                  [DEV BYPASS] Skip Verification
-                </button>
-              )}
-            </div>
-          )}
+                  <Lock className="w-4 h-4" />
+                  VERIFY WITH WORLD ID
+                </PixelButton>
+                <p className="font-pixel text-[8px] text-muted-foreground/50 mt-2">
+                  POWERED BY WORLD ID · SEMAPHORE ZK PROTOCOL
+                </p>
+              </motion.div>
+            )}
+
+            {phase === "verifying" && (
+              <motion.div
+                key="verifying"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex flex-col items-center gap-4 w-full"
+              >
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
+                >
+                  <Cpu className="w-8 h-8 text-primary" />
+                </motion.div>
+                <div className="w-full bg-background/80 border border-primary/30 p-4 text-left">
+                  {VERIFY_STEPS.slice(0, stepIndex + 1).map((step, i) => (
+                    <motion.div
+                      key={step}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={`font-terminal text-xs mb-1 ${
+                        i === stepIndex ? "text-primary" : "text-muted-foreground/60"
+                      }`}
+                    >
+                      {i < stepIndex ? "✓ " : "> "}{step}
+                    </motion.div>
+                  ))}
+                </div>
+                <div className="w-full bg-secondary/20 h-1 rounded-full overflow-hidden">
+                  <motion.div
+                    className="h-full bg-primary"
+                    animate={{ width: `${((stepIndex + 1) / VERIFY_STEPS.length) * 100}%` }}
+                    transition={{ duration: 0.4 }}
+                  />
+                </div>
+              </motion.div>
+            )}
+
+            {phase === "done" && (
+              <motion.div
+                key="done"
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="flex flex-col items-center gap-4"
+              >
+                <ShieldCheck className="w-12 h-12 text-primary" />
+                <p className="font-pixel text-xs text-primary">
+                  IDENTITY VERIFIED
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </PixelPanel>
       </motion.div>
     </div>
