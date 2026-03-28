@@ -50,5 +50,5 @@ export type ListReceiptsParams = {
   /**
    * World ID nullifier hash to filter receipts by
    */
-  nullifier?: string;
+  nullifier: string;
 };

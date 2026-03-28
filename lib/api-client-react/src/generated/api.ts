@@ -110,10 +110,10 @@ export function useHealthCheck<
 }
 
 /**
- * Returns all work receipts, optionally filtered by nullifier hash
+ * Returns all work receipts for a given nullifier hash
  * @summary List work receipts
  */
-export const getListReceiptsUrl = (params?: ListReceiptsParams) => {
+export const getListReceiptsUrl = (params: ListReceiptsParams) => {
   const normalizedParams = new URLSearchParams();
 
   Object.entries(params || {}).forEach(([key, value]) => {
@@ -130,7 +130,7 @@ export const getListReceiptsUrl = (params?: ListReceiptsParams) => {
 };
 
 export const listReceipts = async (
-  params?: ListReceiptsParams,
+  params: ListReceiptsParams,
   options?: RequestInit,
 ): Promise<WorkReceipt[]> => {
   return customFetch<WorkReceipt[]>(getListReceiptsUrl(params), {
@@ -147,7 +147,7 @@ export const getListReceiptsQueryOptions = <
   TData = Awaited<ReturnType<typeof listReceipts>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListReceiptsParams,
+  params: ListReceiptsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listReceipts>>,
@@ -185,7 +185,7 @@ export function useListReceipts<
   TData = Awaited<ReturnType<typeof listReceipts>>,
   TError = ErrorType<unknown>,
 >(
-  params?: ListReceiptsParams,
+  params: ListReceiptsParams,
   options?: {
     query?: UseQueryOptions<
       Awaited<ReturnType<typeof listReceipts>>,

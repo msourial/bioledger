@@ -31,11 +31,11 @@ paths:
       operationId: listReceipts
       tags: [receipts]
       summary: List work receipts
-      description: Returns all work receipts, optionally filtered by nullifier hash
+      description: Returns all work receipts for a given nullifier hash
       parameters:
         - name: nullifier
           in: query
-          required: false
+          required: true
           schema:
             type: string
           description: World ID nullifier hash to filter receipts by

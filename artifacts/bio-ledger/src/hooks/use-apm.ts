@@ -1,8 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 
 /**
- * Tracks Actions Per Minute (APM) based on mouse clicks and keypresses
- * over a rolling 60-second window.
+ * Tracks Input Actions Per Minute (APM) — counts mouse clicks and keydown events
+ * over a rolling 60-second window. Resets to 0 when session is not active.
+ *
+ * Note: "APM" here means discrete input actions (click + keydown), not pointer
+ * movement velocity. Suitable as a focus/engagement proxy metric.
  */
 export function useAPM(isActive: boolean) {
   const [apm, setApm] = useState(0);

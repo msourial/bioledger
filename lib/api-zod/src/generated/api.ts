@@ -16,13 +16,12 @@ export const HealthCheckResponse = zod.object({
 });
 
 /**
- * Returns all work receipts, optionally filtered by nullifier hash
+ * Returns all work receipts for a given nullifier hash
  * @summary List work receipts
  */
 export const ListReceiptsQueryParams = zod.object({
   nullifier: zod.coerce
     .string()
-    .optional()
     .describe("World ID nullifier hash to filter receipts by"),
 });
 
