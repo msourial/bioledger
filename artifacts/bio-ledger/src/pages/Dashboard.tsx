@@ -14,6 +14,15 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
+interface SessionHistoryEntry {
+  id: string;
+  completedAt: Date;
+  apm: number;
+  hrv: number;
+  strain: number;
+  focusScore: number;
+}
+
 const POMODORO_TIME = 25 * 60; // 25 minutes
 
 export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
@@ -25,6 +34,9 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
   // Timer State
   const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
   const [isFiling, setIsFiling] = useState(false);
+
+  // Local session history (in-memory, distinct from persisted receipts ledger)
+  const [sessionHistory, setSessionHistory] = useState<SessionHistoryEntry[]>([]);
 
   // API Hooks
   const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
@@ -57,6 +69,14 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
     const signedReceipt = await signWorkReceipt(nullifierHash, stats);
     const cid = await storeToFilecoin(signedReceipt);
     signedReceipt.receiptCid = cid;
+
+    // Record in local session history immediately (before network round-trip)
+    const historyEntry: SessionHistoryEntry = {
+      id: crypto.randomUUID(),
+      completedAt: new Date(),
+      ...stats,
+    };
+    setSessionHistory((prev) => [historyEntry, ...prev]);
 
     const payload = {
       nullifierHash,
@@ -238,6 +258,30 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
 
         {/* Bottom: Receipt Log */}
         <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
+          {/* Session History (in-memory, current app session) */}
+          {sessionHistory.length > 0 && (
+            <div className="mb-4">
+              <h3 className="font-pixel text-[10px] mb-2 text-accent border-b-2 border-accent/20 pb-1">
+                SESSION HISTORY (THIS VAULT)
+              </h3>
+              <div className="flex flex-col gap-1">
+                {sessionHistory.map((entry) => (
+                  <div key={entry.id} className="flex items-center justify-between bg-accent/5 border-l-2 border-accent px-3 py-1">
+                    <span className="font-terminal text-xs text-muted-foreground">
+                      {format(entry.completedAt, "HH:mm")}
+                    </span>
+                    <span className="font-terminal text-xs">
+                      Score <NeonText>{entry.focusScore}</NeonText>
+                    </span>
+                    <span className="font-terminal text-xs text-muted-foreground">
+                      APM {entry.apm} · HRV {entry.hrv}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2">
             AGENTIC WORK RECEIPTS (ERC-8004)
           </h3>
