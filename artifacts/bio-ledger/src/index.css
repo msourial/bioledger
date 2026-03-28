@@ -1,0 +1,126 @@
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-card: hsl(var(--card));
+  --color-border: hsl(var(--border));
+
+  --font-pixel: 'Press Start 2P', cursive;
+  --font-terminal: 'VT323', monospace;
+}
+
+:root {
+  /* Deep Purple #2D1B4E */
+  --background: 261 48% 20%;
+  /* Darker Purple for cards/panes #1A0B2E */
+  --card: 266 61% 11%;
+  /* Light text */
+  --foreground: 260 20% 90%;
+  
+  /* Neon Teal #00F5FF */
+  --primary: 182 100% 50%;
+  --primary-foreground: 266 61% 11%;
+  
+  /* Magenta #702963 */
+  --secondary: 311 46% 30%;
+  --secondary-foreground: 0 0% 100%;
+  
+  /* Bright Magenta accent */
+  --accent: 311 100% 60%;
+  --accent-foreground: 0 0% 100%;
+
+  /* Muted */
+  --muted: 261 40% 30%;
+  --muted-foreground: 260 20% 70%;
+  
+  --border: 311 46% 30%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground font-terminal antialiased;
+    background-image: 
+      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
+    background-size: 4px 4px;
+    background-position: center center;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-pixel;
+  }
+}
+
+@layer utilities {
+  .text-shadow-neon {
+    text-shadow: 0 0 5px hsl(var(--primary) / 0.8), 0 0 10px hsl(var(--primary) / 0.5);
+  }
+  
+  .text-shadow-magenta {
+    text-shadow: 0 0 5px hsl(var(--accent) / 0.8), 0 0 10px hsl(var(--accent) / 0.5);
+  }
+
+  .scanlines {
+    position: relative;
+  }
+  
+  .scanlines::before {
+    content: " ";
+    display: block;
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+    z-index: 50;
+    background-size: 100% 4px, 3px 100%;
+    pointer-events: none;
+  }
+
+  .pixel-borders {
+    box-shadow: 
+      -4px 0 0 0 hsl(var(--primary)),
+      4px 0 0 0 hsl(var(--primary)),
+      0 -4px 0 0 hsl(var(--primary)),
+      0 4px 0 0 hsl(var(--primary));
+    margin: 4px;
+  }
+
+  .pixel-borders-secondary {
+    box-shadow: 
+      -4px 0 0 0 hsl(var(--secondary)),
+      4px 0 0 0 hsl(var(--secondary)),
+      0 -4px 0 0 hsl(var(--secondary)),
+      0 4px 0 0 hsl(var(--secondary));
+    margin: 4px;
+  }
+}
+
+/* Scrollbar styling for that retro feel */
+::-webkit-scrollbar {
+  width: 12px;
+}
+
+::-webkit-scrollbar-track {
+  background: hsl(var(--card));
+  border-left: 2px solid hsl(var(--secondary));
+}
+
+::-webkit-scrollbar-thumb {
+  background: hsl(var(--primary));
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--accent));
+}

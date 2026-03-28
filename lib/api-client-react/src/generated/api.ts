@@ -5,18 +5,27 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import type {
+  MutationFunction,
   QueryFunction,
   QueryKey,
+  UseMutationOptions,
+  UseMutationResult,
   UseQueryOptions,
   UseQueryResult,
 } from "@tanstack/react-query";
 
-import type { HealthStatus } from "./api.schemas";
+import type {
+  ApiError,
+  CreateReceiptBody,
+  HealthStatus,
+  ListReceiptsParams,
+  WorkReceipt,
+} from "./api.schemas";
 
 import { customFetch } from "../custom-fetch";
-import type { ErrorType } from "../custom-fetch";
+import type { ErrorType, BodyType } from "../custom-fetch";
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -99,3 +108,185 @@ export function useHealthCheck<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Returns all work receipts, optionally filtered by nullifier hash
+ * @summary List work receipts
+ */
+export const getListReceiptsUrl = (params?: ListReceiptsParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/receipts?${stringifiedParams}`
+    : `/api/receipts`;
+};
+
+export const listReceipts = async (
+  params?: ListReceiptsParams,
+  options?: RequestInit,
+): Promise<WorkReceipt[]> => {
+  return customFetch<WorkReceipt[]>(getListReceiptsUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListReceiptsQueryKey = (params?: ListReceiptsParams) => {
+  return [`/api/receipts`, ...(params ? [params] : [])] as const;
+};
+
+export const getListReceiptsQueryOptions = <
+  TData = Awaited<ReturnType<typeof listReceipts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListReceiptsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReceipts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListReceiptsQueryKey(params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof listReceipts>>> = ({
+    signal,
+  }) => listReceipts(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listReceipts>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListReceiptsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listReceipts>>
+>;
+export type ListReceiptsQueryError = ErrorType<unknown>;
+
+/**
+ * @summary List work receipts
+ */
+
+export function useListReceipts<
+  TData = Awaited<ReturnType<typeof listReceipts>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: ListReceiptsParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof listReceipts>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListReceiptsQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Store a new ERC-8004 work receipt signed by the Companion Agent
+ * @summary Create a work receipt
+ */
+export const getCreateReceiptUrl = () => {
+  return `/api/receipts`;
+};
+
+export const createReceipt = async (
+  createReceiptBody: CreateReceiptBody,
+  options?: RequestInit,
+): Promise<WorkReceipt> => {
+  return customFetch<WorkReceipt>(getCreateReceiptUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(createReceiptBody),
+  });
+};
+
+export const getCreateReceiptMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReceipt>>,
+    TError,
+    { data: BodyType<CreateReceiptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof createReceipt>>,
+  TError,
+  { data: BodyType<CreateReceiptBody> },
+  TContext
+> => {
+  const mutationKey = ["createReceipt"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof createReceipt>>,
+    { data: BodyType<CreateReceiptBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return createReceipt(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type CreateReceiptMutationResult = NonNullable<
+  Awaited<ReturnType<typeof createReceipt>>
+>;
+export type CreateReceiptMutationBody = BodyType<CreateReceiptBody>;
+export type CreateReceiptMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Create a work receipt
+ */
+export const useCreateReceipt = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof createReceipt>>,
+    TError,
+    { data: BodyType<CreateReceiptBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof createReceipt>>,
+  TError,
+  { data: BodyType<CreateReceiptBody> },
+  TContext
+> => {
+  return useMutation(getCreateReceiptMutationOptions(options));
+};

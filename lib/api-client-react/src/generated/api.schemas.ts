@@ -8,3 +8,47 @@
 export interface HealthStatus {
   status: string;
 }
+
+export interface SessionStats {
+  /** Session duration in seconds */
+  durationSeconds: number;
+  /** Actions per minute tracked during session */
+  apm: number;
+  /** Heart rate variability reading */
+  hrv: number;
+  /** Whoop strain score */
+  strain: number;
+  /** Computed focus score (0-100) */
+  focusScore: number;
+}
+
+export interface WorkReceipt {
+  id: number;
+  /** World ID nullifier hash identifying the user */
+  nullifierHash: string;
+  sessionStats: SessionStats;
+  /** HMAC signature from the Companion Agent */
+  companionSignature: string;
+  /** Filecoin CID of the stored receipt (if available) */
+  receiptCid?: string;
+  createdAt: string;
+}
+
+export interface CreateReceiptBody {
+  nullifierHash: string;
+  sessionStats: SessionStats;
+  companionSignature: string;
+  receiptCid?: string;
+}
+
+export interface ApiError {
+  error: string;
+  details?: string;
+}
+
+export type ListReceiptsParams = {
+  /**
+   * World ID nullifier hash to filter receipts by
+   */
+  nullifier?: string;
+};

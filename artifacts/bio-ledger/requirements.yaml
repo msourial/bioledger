@@ -1,0 +1,25 @@
+packages:
+  "@worldcoin/idkit": "World ID login widget for identity gating"
+  "framer-motion": "Animations for the avatar and session completion"
+  "date-fns": "Date formatting for receipts"
+  "clsx": "Class name utility"
+  "tailwind-merge": "Tailwind class merging"
+
+images:
+  - path: "artifacts/bio-ledger/public/images/hero-bg.png"
+    description: "16-bit lo-fi pixel art background showing a dark cyberpunk living room in deep purple and magenta with subtle neon teal glowing monitors"
+    aspect_ratio: "16:9"
+  - path: "artifacts/bio-ledger/public/images/avatar.png"
+    description: "16-bit pixel art main character avatar sitting in a chair, lo-fi cyberpunk style, transparent background"
+    aspect_ratio: "1:1"
+  - path: "artifacts/bio-ledger/public/images/companion.png"
+    description: "16-bit pixel art cute floating robot companion AI, glowing neon teal, transparent background"
+    aspect_ratio: "1:1"
+  - path: "artifacts/bio-ledger/public/images/vault-logo.png"
+    description: "16-bit pixel art glowing neon teal vault door icon on a deep purple background"
+    aspect_ratio: "1:1"
+
+notes:
+  - Using generated React Query hooks from @workspace/api-client-react for /api/receipts endpoints
+  - Using mock Whoop data for HRV and Strain as requested
+  - Using mock Synapse SDK flow (timeout + mock CID generation) as requested

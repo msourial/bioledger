@@ -15,13 +15,41 @@ pnpm workspace monorepo using TypeScript. Each package manages its own dependenc
 - **Validation**: Zod (`zod/v4`), `drizzle-zod`
 - **API codegen**: Orval (from OpenAPI spec)
 - **Build**: esbuild (CJS bundle)
+- **Frontend**: React 19 + Vite 7 + Tailwind CSS 4
+- **Identity**: @worldcoin/idkit (World ID login gate)
+- **PWA**: vite-plugin-pwa (installable app)
+
+## Bio-Ledger Application
+
+The primary app is **Bio-Ledger** — a Verifiable Life-Graph PWA for the PL Genesis Hackathon targeting:
+
+1. **Protocol Labs bounty**: Filecoin warm storage via Synapse SDK (stub/mock in dev)
+2. **ERC-8004 bounty**: AI Companion Agent signs Work Receipts (HMAC-SHA256) after each 25m focus session
+3. **World ID bounty**: Identity gate unlocking the "Sovereign Vault" using IDKit v2
+
+### Key Files
+- `artifacts/bio-ledger/src/pages/LockScreen.tsx` — World ID gate (IDKitRequestWidget)
+- `artifacts/bio-ledger/src/pages/Dashboard.tsx` — Split-pane main app (Living Room + Ledger)
+- `artifacts/bio-ledger/src/lib/whoop-mock.ts` — Mocked Whoop HRV/Strain bio-data (useMockBioData hook)
+- `artifacts/bio-ledger/src/lib/companion-agent.ts` — Work Receipt HMAC signing + Filecoin stub
+- `artifacts/bio-ledger/src/hooks/use-apm.ts` — Mouse/keyboard APM tracker
+- `artifacts/bio-ledger/src/components/PixelUI.tsx` — Pixel-art UI components
+- `artifacts/api-server/src/routes/receipts.ts` — REST API for Work Receipts
+- `lib/db/src/schema/work-receipts.ts` — work_receipts table (Drizzle ORM)
+
+### Design Palette
+- Background: #2D1B4E (Deep Purple)
+- Accent: #702963 (Magenta)
+- Primary/Neon: #00F5FF (Neon Teal)
+- Font: Press Start 2P (pixel) + VT323 (terminal)
 
 ## Structure
 
 ```text
 artifacts-monorepo/
 ├── artifacts/              # Deployable applications
-│   └── api-server/         # Express API server
+│   ├── api-server/         # Express API server
+│   └── bio-ledger/         # Bio-Ledger React PWA (previewPath: /)
 ├── lib/                    # Shared libraries
 │   ├── api-spec/           # OpenAPI spec + Orval codegen config
 │   ├── api-client-react/   # Generated React Query hooks

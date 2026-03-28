@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: receipts
+    description: Work receipt operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,52 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /receipts:
+    get:
+      operationId: listReceipts
+      tags: [receipts]
+      summary: List work receipts
+      description: Returns all work receipts, optionally filtered by nullifier hash
+      parameters:
+        - name: nullifier
+          in: query
+          required: false
+          schema:
+            type: string
+          description: World ID nullifier hash to filter receipts by
+      responses:
+        "200":
+          description: List of receipts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkReceipt"
+    post:
+      operationId: createReceipt
+      tags: [receipts]
+      summary: Create a work receipt
+      description: Store a new ERC-8004 work receipt signed by the Companion Agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReceiptBody"
+      responses:
+        "201":
+          description: Created receipt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkReceipt"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +81,76 @@ components:
           type: string
       required:
         - status
-
+    SessionStats:
+      type: object
+      properties:
+        durationSeconds:
+          type: number
+          description: Session duration in seconds
+        apm:
+          type: number
+          description: Actions per minute tracked during session
+        hrv:
+          type: number
+          description: Heart rate variability reading
+        strain:
+          type: number
+          description: Whoop strain score
+        focusScore:
+          type: number
+          description: Computed focus score (0-100)
+      required:
+        - durationSeconds
+        - apm
+        - hrv
+        - strain
+        - focusScore
+    WorkReceipt:
+      type: object
+      properties:
+        id:
+          type: integer
+        nullifierHash:
+          type: string
+          description: World ID nullifier hash identifying the user
+        sessionStats:
+          $ref: "#/components/schemas/SessionStats"
+        companionSignature:
+          type: string
+          description: HMAC signature from the Companion Agent
+        receiptCid:
+          type: string
+          description: Filecoin CID of the stored receipt (if available)
+        createdAt:
+          type: string
+          format: date-time
+      required:
+        - id
+        - nullifierHash
+        - sessionStats
+        - companionSignature
+        - createdAt
+    CreateReceiptBody:
+      type: object
+      properties:
+        nullifierHash:
+          type: string
+        sessionStats:
+          $ref: "#/components/schemas/SessionStats"
+        companionSignature:
+          type: string
+        receiptCid:
+          type: string
+      required:
+        - nullifierHash
+        - sessionStats
+        - companionSignature
+    ApiError:
+      type: object
+      properties:
+        error:
+          type: string
+        details:
+          type: string
+      required:
+        - error

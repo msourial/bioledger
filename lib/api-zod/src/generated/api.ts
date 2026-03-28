@@ -14,3 +14,54 @@ import * as zod from "zod";
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
 });
+
+/**
+ * Returns all work receipts, optionally filtered by nullifier hash
+ * @summary List work receipts
+ */
+export const ListReceiptsQueryParams = zod.object({
+  nullifier: zod.coerce
+    .string()
+    .optional()
+    .describe("World ID nullifier hash to filter receipts by"),
+});
+
+export const ListReceiptsResponseItem = zod.object({
+  id: zod.number(),
+  nullifierHash: zod
+    .string()
+    .describe("World ID nullifier hash identifying the user"),
+  sessionStats: zod.object({
+    durationSeconds: zod.number().describe("Session duration in seconds"),
+    apm: zod.number().describe("Actions per minute tracked during session"),
+    hrv: zod.number().describe("Heart rate variability reading"),
+    strain: zod.number().describe("Whoop strain score"),
+    focusScore: zod.number().describe("Computed focus score (0-100)"),
+  }),
+  companionSignature: zod
+    .string()
+    .describe("HMAC signature from the Companion Agent"),
+  receiptCid: zod
+    .string()
+    .optional()
+    .describe("Filecoin CID of the stored receipt (if available)"),
+  createdAt: zod.coerce.date(),
+});
+export const ListReceiptsResponse = zod.array(ListReceiptsResponseItem);
+
+/**
+ * Store a new ERC-8004 work receipt signed by the Companion Agent
+ * @summary Create a work receipt
+ */
+export const CreateReceiptBody = zod.object({
+  nullifierHash: zod.string(),
+  sessionStats: zod.object({
+    durationSeconds: zod.number().describe("Session duration in seconds"),
+    apm: zod.number().describe("Actions per minute tracked during session"),
+    hrv: zod.number().describe("Heart rate variability reading"),
+    strain: zod.number().describe("Whoop strain score"),
+    focusScore: zod.number().describe("Computed focus score (0-100)"),
+  }),
+  companionSignature: zod.string(),
+  receiptCid: zod.string().optional(),
+});
