@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, CameraOff, Eye } from 'lucide-react';
+import { Camera, CameraOff, Eye, EyeOff } from 'lucide-react';
 import type { UseCameraResult } from '@/hooks/use-camera';
 
 interface CameraLensProps {
@@ -9,22 +9,30 @@ interface CameraLensProps {
 
 /**
  * CameraLens — circular camera feed widget for the Living Room pane.
- * Applies a pixel-art CSS filter (saturate + contrast) and a scanline overlay.
- * Shows a pulsing eye icon when face is detected.
+ * Shows a pulsing eye when face is detected, EyeOff when presence lost.
+ * Displays countdown timer when presence is waning (< 20 seconds).
  */
 export default function CameraLens({ camera, isSessionActive }: CameraLensProps) {
-  const { videoRef, canvasRef, isActive, faceDetected, error } = camera;
+  const { videoRef, canvasRef, isActive, faceDetected, secondsUntilLock, error } = camera;
+
+  const presenceWarning = isActive && faceDetected && secondsUntilLock < 20;
+  const presenceLost = isActive && !faceDetected;
 
   return (
     <div className="absolute bottom-4 right-4 z-20">
       <div className="relative w-20 h-20 sm:w-24 sm:h-24">
         {/* Outer ring */}
         <motion.div
-          className="absolute inset-0 rounded-full border-2 border-primary"
+          className="absolute inset-0 rounded-full border-2"
           animate={
-            isActive && faceDetected
-              ? { boxShadow: ['0 0 0px #00F5FF', '0 0 12px #00F5FF', '0 0 0px #00F5FF'] }
-              : { boxShadow: '0 0 0px transparent' }
+            presenceLost
+              ? {
+                  borderColor: ['#ef4444', '#7f1d1d', '#ef4444'],
+                  boxShadow: ['0 0 0px #ef4444', '0 0 12px #ef4444', '0 0 0px #ef4444'],
+                }
+              : isActive && faceDetected
+              ? { boxShadow: ['0 0 0px #00F5FF', '0 0 12px #00F5FF', '0 0 0px #00F5FF'], borderColor: '#00F5FF' }
+              : { boxShadow: '0 0 0px transparent', borderColor: '#702963' }
           }
           transition={{ duration: 2, repeat: Infinity }}
         />
@@ -40,7 +48,6 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
                 exit={{ opacity: 0 }}
                 className="w-full h-full relative"
               >
-                {/* Mirror + pixel-art filter */}
                 <video
                   ref={videoRef}
                   autoPlay
@@ -49,7 +56,9 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
                   className="w-full h-full object-cover"
                   style={{
                     transform: 'scaleX(-1)',
-                    filter: 'contrast(1.4) saturate(0.3) brightness(0.9) hue-rotate(180deg)',
+                    filter: presenceLost
+                      ? 'contrast(1.4) saturate(0.1) brightness(0.6) hue-rotate(0deg)'
+                      : 'contrast(1.4) saturate(0.3) brightness(0.9) hue-rotate(180deg)',
                     imageRendering: 'pixelated',
                   }}
                 />
@@ -61,8 +70,16 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
                       'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 4px)',
                   }}
                 />
-                {/* Teal color overlay */}
-                <div className="absolute inset-0 bg-primary/10 mix-blend-color pointer-events-none" />
+                {/* Color overlay */}
+                <div
+                  className={`absolute inset-0 mix-blend-color pointer-events-none ${presenceLost ? 'bg-red-900/30' : 'bg-primary/10'}`}
+                />
+                {/* Presence lost overlay text */}
+                {presenceLost && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                    <EyeOff className="w-5 h-5 text-red-400" />
+                  </div>
+                )}
               </motion.div>
             ) : (
               <motion.div
@@ -81,19 +98,34 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
           </AnimatePresence>
         </div>
 
-        {/* Face detected indicator */}
-        {isActive && faceDetected && (
+        {/* Face detected / Presence Lost indicator */}
+        {isActive && (
           <motion.div
-            className="absolute -top-1 -left-1 w-5 h-5 rounded-full bg-primary flex items-center justify-center"
+            className={`absolute -top-1 -left-1 w-5 h-5 rounded-full flex items-center justify-center ${
+              presenceLost ? 'bg-red-600' : 'bg-primary'
+            }`}
             animate={{ scale: [1, 1.2, 1] }}
             transition={{ duration: 2, repeat: Infinity }}
           >
-            <Eye className="w-2.5 h-2.5 text-background" />
+            {presenceLost ? (
+              <EyeOff className="w-2.5 h-2.5 text-white" />
+            ) : (
+              <Eye className="w-2.5 h-2.5 text-background" />
+            )}
           </motion.div>
         )}
 
-        {/* Session active indicator */}
-        {isSessionActive && !isActive && (
+        {/* Countdown ring overlay when warning */}
+        {presenceWarning && (
+          <div className="absolute inset-0 flex items-end justify-center pb-0.5">
+            <span className="font-pixel text-[7px] text-yellow-400 bg-black/70 px-1 rounded-sm">
+              {secondsUntilLock}s
+            </span>
+          </div>
+        )}
+
+        {/* Session active, camera not yet started */}
+        {isSessionActive && !isActive && !error && (
           <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />
         )}
       </div>
@@ -103,8 +135,16 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
 
       {/* Status label */}
       <div className="text-center mt-1">
-        <span className="font-pixel text-[6px] text-muted-foreground/60 tracking-widest">
-          {error ? 'NO CAM' : isActive ? 'LENS' : 'CAM OFF'}
+        <span
+          className={`font-pixel text-[6px] tracking-widest ${
+            presenceLost
+              ? 'text-red-400'
+              : isActive
+              ? 'text-primary'
+              : 'text-muted-foreground/60'
+          }`}
+        >
+          {error ? 'NO CAM' : presenceLost ? 'NO PRESENCE' : isActive ? 'LENS' : 'CAM OFF'}
         </span>
       </div>
     </div>

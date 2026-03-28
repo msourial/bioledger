@@ -19,25 +19,30 @@ const queryClient = new QueryClient({
 
 function AppRouter() {
   const [location, setLocation] = useLocation();
-  
-  // Basic mock auth state based on World ID nullifier hash
+
   const [nullifierHash, setNullifierHash] = useState<string | null>(() => {
     return localStorage.getItem('bio_ledger_nullifier');
   });
+  const [bioSourceConnected, setBioSourceConnected] = useState<boolean>(() => {
+    return localStorage.getItem('bio_ledger_bio_source') === 'connected';
+  });
 
-  const handleVerify = (hash: string) => {
+  const handleVerify = (hash: string, bioConnected: boolean) => {
     setNullifierHash(hash);
+    setBioSourceConnected(bioConnected);
     localStorage.setItem('bio_ledger_nullifier', hash);
+    localStorage.setItem('bio_ledger_bio_source', bioConnected ? 'connected' : 'demo');
     setLocation("/dashboard");
   };
 
   const handleLogout = () => {
     setNullifierHash(null);
+    setBioSourceConnected(false);
     localStorage.removeItem('bio_ledger_nullifier');
+    localStorage.removeItem('bio_ledger_bio_source');
     setLocation("/");
   };
 
-  // Redirect logic
   useEffect(() => {
     if (nullifierHash && location === "/") {
       setLocation("/dashboard");
@@ -53,7 +58,11 @@ function AppRouter() {
       </Route>
       <Route path="/dashboard">
         {nullifierHash ? (
-          <Dashboard nullifierHash={nullifierHash} onLogout={handleLogout} />
+          <Dashboard
+            nullifierHash={nullifierHash}
+            bioSourceConnected={bioSourceConnected}
+            onLogout={handleLogout}
+          />
         ) : (
           <LockScreen onVerify={handleVerify} />
         )}

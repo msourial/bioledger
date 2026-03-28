@@ -5,23 +5,29 @@ export interface UseCameraResult {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
   isActive: boolean;
   faceDetected: boolean;
+  secondsUntilLock: number;
   error: string | null;
 }
 
+const PRESENCE_TIMEOUT_MS = 30_000;
+const MOTION_THRESHOLD = 8;
+
 /**
- * useCamera — requests camera access via getUserMedia and provides a video ref
- * for display. Runs analyzeFocus() every 500ms to detect blink events by
- * comparing consecutive frame pixel diffs. faceDetected is true while the
- * stream is live (AI model integration point for future face detection).
+ * useCamera — getUserMedia camera hook with 30-second sovereign presence detection.
+ * Compares consecutive frame pixel diffs. If no significant motion is detected for
+ * 30 seconds (implying no face in frame), faceDetected is set to false and
+ * secondsUntilLock counts down to 0.
  */
 export function useCamera(enabled: boolean): UseCameraResult {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const lastFrameRef = useRef<Uint8ClampedArray | null>(null);
+  const lastPresenceRef = useRef<number>(Date.now());
 
   const [isActive, setIsActive] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
+  const [secondsUntilLock, setSecondsUntilLock] = useState(30);
   const [error, setError] = useState<string | null>(null);
 
   const stopCamera = useCallback(() => {
@@ -30,6 +36,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     if (videoRef.current) videoRef.current.srcObject = null;
     setIsActive(false);
     setFaceDetected(false);
+    setSecondsUntilLock(30);
     lastFrameRef.current = null;
   }, []);
 
@@ -44,7 +51,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
         videoRef.current.srcObject = stream;
         videoRef.current.play().catch(() => {});
       }
+      lastPresenceRef.current = Date.now();
       setIsActive(true);
+      setFaceDetected(true);
+      setSecondsUntilLock(30);
       setError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Camera unavailable';
@@ -62,11 +72,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => stopCamera();
   }, [enabled, startCamera, stopCamera]);
 
-  /**
-   * analyzeFocus — compares sampled pixels between consecutive frames.
-   * A large average diff indicates rapid luminance change (blink placeholder).
-   * Logs a 'Blink Event' to console when detected.
-   */
+  /** Compare consecutive frames; update lastPresenceRef on motion. */
   const analyzeFocus = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -91,14 +97,16 @@ export function useCamera(enabled: boolean): UseCameraResult {
         diff += Math.abs(frame[i] - lastFrameRef.current[i]);
       }
       const avgDiff = diff / count;
-      if (avgDiff > 12) {
-        console.log('[Bio-Ledger] Blink Event', { avgDiff: avgDiff.toFixed(2), ts: Date.now() });
+
+      if (avgDiff > MOTION_THRESHOLD) {
+        lastPresenceRef.current = Date.now();
+        if (avgDiff > 12) {
+          console.log('[Bio-Ledger] Blink Event', { avgDiff: avgDiff.toFixed(2), ts: Date.now() });
+        }
       }
     }
 
     lastFrameRef.current = new Uint8ClampedArray(frame);
-    // Placeholder: face is "detected" whenever stream is live
-    setFaceDetected(true);
   }, []);
 
   useEffect(() => {
@@ -107,5 +115,20 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => clearInterval(id);
   }, [isActive, analyzeFocus]);
 
-  return { videoRef, canvasRef, isActive, faceDetected, error };
+  /** Presence watchdog: check every second if the 30s window has elapsed. */
+  useEffect(() => {
+    if (!isActive) return;
+
+    const watchdog = setInterval(() => {
+      const elapsed = Date.now() - lastPresenceRef.current;
+      const remaining = Math.max(0, Math.ceil((PRESENCE_TIMEOUT_MS - elapsed) / 1000));
+      const detected = elapsed < PRESENCE_TIMEOUT_MS;
+      setFaceDetected(detected);
+      setSecondsUntilLock(remaining);
+    }, 1000);
+
+    return () => clearInterval(watchdog);
+  }, [isActive]);
+
+  return { videoRef, canvasRef, isActive, faceDetected, secondsUntilLock, error };
 }
