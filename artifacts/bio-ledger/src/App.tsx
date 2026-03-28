@@ -38,7 +38,9 @@ function AppRouter() {
   const handleLogout = () => {
     setNullifierHash(null);
     setBioSourceConnected(false);
-    localStorage.removeItem('bio_ledger_nullifier');
+    // Keep 'bio_ledger_nullifier' in localStorage — the nullifier is a persistent
+    // deterministic identity (like a World ID public key). Only the session token
+    // (bio-source auth) is cleared on "lock vault".
     localStorage.removeItem('bio_ledger_bio_source');
     setLocation("/");
   };
