@@ -20,8 +20,11 @@ const queryClient = new QueryClient({
 function AppRouter() {
   const [location, setLocation] = useLocation();
 
+  // 'bio_ledger_nullifier' is a persistent identity (World ID public key — never deleted).
+  // 'bio_ledger_session' is cleared on logout so a page refresh after locking requires re-verification.
   const [nullifierHash, setNullifierHash] = useState<string | null>(() => {
-    return localStorage.getItem('bio_ledger_nullifier');
+    const hasSession = sessionStorage.getItem('bio_ledger_session') === '1';
+    return hasSession ? localStorage.getItem('bio_ledger_nullifier') : null;
   });
   const [bioSourceConnected, setBioSourceConnected] = useState<boolean>(() => {
     return localStorage.getItem('bio_ledger_bio_source') === 'connected';
@@ -32,15 +35,16 @@ function AppRouter() {
     setBioSourceConnected(bioConnected);
     localStorage.setItem('bio_ledger_nullifier', hash);
     localStorage.setItem('bio_ledger_bio_source', bioConnected ? 'connected' : 'demo');
+    sessionStorage.setItem('bio_ledger_session', '1');
     setLocation("/dashboard");
   };
 
   const handleLogout = () => {
     setNullifierHash(null);
     setBioSourceConnected(false);
-    // Keep 'bio_ledger_nullifier' in localStorage — the nullifier is a persistent
-    // deterministic identity (like a World ID public key). Only the session token
-    // (bio-source auth) is cleared on "lock vault".
+    // bio_ledger_nullifier stays in localStorage (persistent identity — never deleted).
+    // Clearing the session flag means a page refresh after lock requires re-verification.
+    sessionStorage.removeItem('bio_ledger_session');
     localStorage.removeItem('bio_ledger_bio_source');
     setLocation("/");
   };
