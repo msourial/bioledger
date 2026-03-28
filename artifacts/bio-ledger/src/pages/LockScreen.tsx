@@ -52,7 +52,9 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
   /* ── Step 1: World ID ZK Proof ── */
   const handleWorldId = () => {
     if (phase !== 'idle') return;
-    const hash = generateNullifier();
+    // Reuse existing nullifier if one is saved — World ID is deterministic per identity
+    const existing = localStorage.getItem('bio_ledger_nullifier');
+    const hash = existing ?? generateNullifier();
     setNullifier(hash);
     setPhase('zk-verifying');
     setStepIndex(0);

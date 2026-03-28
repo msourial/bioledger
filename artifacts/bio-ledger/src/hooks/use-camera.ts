@@ -6,17 +6,20 @@ export interface UseCameraResult {
   isActive: boolean;
   faceDetected: boolean;
   secondsUntilLock: number;
+  /** Current frame-diff activity level, 0–100. Reflects live pixel motion. */
+  frameDiff: number;
   error: string | null;
 }
 
 const PRESENCE_TIMEOUT_MS = 30_000;
 const MOTION_THRESHOLD = 8;
+/** avgDiff rarely exceeds 35 in practice; clamp to 30 for the 0-100 scale */
+const DIFF_SCALE = 30;
 
 /**
  * useCamera — getUserMedia camera hook with 30-second sovereign presence detection.
- * Compares consecutive frame pixel diffs. If no significant motion is detected for
- * 30 seconds (implying no face in frame), faceDetected is set to false and
- * secondsUntilLock counts down to 0.
+ * Pixel-diff frame analysis: if no significant motion for 30 s, faceDetected = false.
+ * Exposes frameDiff (0-100) so the UI can render a live activity bar.
  */
 export function useCamera(enabled: boolean): UseCameraResult {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -28,6 +31,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
   const [isActive, setIsActive] = useState(false);
   const [faceDetected, setFaceDetected] = useState(false);
   const [secondsUntilLock, setSecondsUntilLock] = useState(30);
+  const [frameDiff, setFrameDiff] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   const stopCamera = useCallback(() => {
@@ -37,6 +41,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     setIsActive(false);
     setFaceDetected(false);
     setSecondsUntilLock(30);
+    setFrameDiff(0);
     lastFrameRef.current = null;
   }, []);
 
@@ -55,6 +60,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
       setIsActive(true);
       setFaceDetected(true);
       setSecondsUntilLock(30);
+      setFrameDiff(0);
       setError(null);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Camera unavailable';
@@ -72,7 +78,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => stopCamera();
   }, [enabled, startCamera, stopCamera]);
 
-  /** Compare consecutive frames; update lastPresenceRef on motion. */
+  /** Compare consecutive frames; update lastPresenceRef and frameDiff on motion. */
   const analyzeFocus = useCallback(() => {
     const video = videoRef.current;
     const canvas = canvasRef.current;
@@ -98,6 +104,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
       }
       const avgDiff = diff / count;
 
+      // Normalize to 0–100 for the activity bar
+      const normalized = Math.min(100, Math.round((avgDiff / DIFF_SCALE) * 100));
+      setFrameDiff(normalized);
+
       if (avgDiff > MOTION_THRESHOLD) {
         lastPresenceRef.current = Date.now();
         if (avgDiff > 12) {
@@ -115,7 +125,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => clearInterval(id);
   }, [isActive, analyzeFocus]);
 
-  /** Presence watchdog: check every second if the 30s window has elapsed. */
+  /** Presence watchdog: check every second if the 30 s window has elapsed. */
   useEffect(() => {
     if (!isActive) return;
 
@@ -130,5 +140,5 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => clearInterval(watchdog);
   }, [isActive]);
 
-  return { videoRef, canvasRef, isActive, faceDetected, secondsUntilLock, error };
+  return { videoRef, canvasRef, isActive, faceDetected, secondsUntilLock, frameDiff, error };
 }

@@ -67,8 +67,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   }, []);
   const motionLock = useMotionLock(isSessionActive, handleMotionInterrupt);
 
-  // Camera / Sovereign Senses
-  const camera = useCamera(isSessionActive);
+  // Camera / Sovereign Senses — always on while in the vault
+  const camera = useCamera(true);
 
   // Sovereign Presence Lost: camera active but no face detected during session
   const presenceLost = isSessionActive && camera.isActive && !camera.faceDetected;
