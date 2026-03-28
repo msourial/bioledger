@@ -44,6 +44,12 @@ export const ListReceiptsResponseItem = zod.object({
     .string()
     .optional()
     .describe("Filecoin CID of the stored receipt (if available)"),
+  physicalIntegrity: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True if phone stayed stationary and camera detected a human face for the entire session",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListReceiptsResponse = zod.array(ListReceiptsResponseItem);
@@ -63,4 +69,10 @@ export const CreateReceiptBody = zod.object({
   }),
   companionSignature: zod.string(),
   receiptCid: zod.string().optional(),
+  physicalIntegrity: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True if phone stayed stationary and camera detected a human face for the entire session",
+    ),
 });

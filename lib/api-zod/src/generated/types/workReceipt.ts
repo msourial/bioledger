@@ -16,5 +16,7 @@ export interface WorkReceipt {
   companionSignature: string;
   /** Filecoin CID of the stored receipt (if available) */
   receiptCid?: string;
+  /** True if phone stayed stationary and camera detected a human face for the entire session */
+  physicalIntegrity?: boolean;
   createdAt: Date;
 }

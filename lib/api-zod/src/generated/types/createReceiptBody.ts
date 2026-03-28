@@ -12,4 +12,6 @@ export interface CreateReceiptBody {
   sessionStats: SessionStats;
   companionSignature: string;
   receiptCid?: string;
+  /** True if phone stayed stationary and camera detected a human face for the entire session */
+  physicalIntegrity?: boolean;
 }

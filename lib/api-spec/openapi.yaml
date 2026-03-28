@@ -121,6 +121,9 @@ components:
         receiptCid:
           type: string
           description: Filecoin CID of the stored receipt (if available)
+        physicalIntegrity:
+          type: boolean
+          description: True if phone stayed stationary and camera detected a human face for the entire session
         createdAt:
           type: string
           format: date-time
@@ -141,6 +144,9 @@ components:
           type: string
         receiptCid:
           type: string
+        physicalIntegrity:
+          type: boolean
+          description: True if phone stayed stationary and camera detected a human face for the entire session
       required:
         - nullifierHash
         - sessionStats

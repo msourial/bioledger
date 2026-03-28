@@ -32,6 +32,7 @@ router.get("/receipts", async (req, res) => {
       sessionStats: r.sessionStats,
       companionSignature: r.companionSignature,
       receiptCid: r.receiptCid ?? undefined,
+      physicalIntegrity: r.physicalIntegrity ?? undefined,
       createdAt: r.createdAt.toISOString(),
     }))
   );
@@ -44,7 +45,7 @@ router.post("/receipts", async (req, res) => {
     return;
   }
 
-  const { nullifierHash, sessionStats, companionSignature, receiptCid } = body.data;
+  const { nullifierHash, sessionStats, companionSignature, receiptCid, physicalIntegrity } = body.data;
 
   const [inserted] = await db
     .insert(workReceiptsTable)
@@ -53,6 +54,7 @@ router.post("/receipts", async (req, res) => {
       sessionStats,
       companionSignature,
       receiptCid: receiptCid ?? null,
+      physicalIntegrity: physicalIntegrity ?? null,
     })
     .returning();
 
@@ -62,6 +64,7 @@ router.post("/receipts", async (req, res) => {
     sessionStats: inserted.sessionStats,
     companionSignature: inserted.companionSignature,
     receiptCid: inserted.receiptCid ?? undefined,
+    physicalIntegrity: inserted.physicalIntegrity ?? undefined,
     createdAt: inserted.createdAt.toISOString(),
   });
 });

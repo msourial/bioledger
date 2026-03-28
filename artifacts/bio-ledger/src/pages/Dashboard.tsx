@@ -1,10 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
-import { Activity, Brain, Clock, MousePointer2, ShieldCheck, HardDrive, LogOut } from 'lucide-react';
+import { Activity, Brain, Clock, MousePointer2, ShieldCheck, HardDrive, LogOut, AlertTriangle, Shield } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
+import { useCamera } from '@/hooks/use-camera';
+import { useMotionLock } from '@/hooks/use-motion-lock';
 import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
+import CameraLens from '@/components/CameraLens';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
@@ -21,28 +24,46 @@ interface SessionHistoryEntry {
   hrv: number;
   strain: number;
   focusScore: number;
+  physicalIntegrity: boolean;
 }
 
-const POMODORO_TIME = 25 * 60; // 25 minutes
+const POMODORO_TIME = 25 * 60;
 
 export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
-  // Bio Data & APM
   const { hrv, strain } = useMockBioData();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const apm = useAPM(isSessionActive);
 
-  // Timer State
   const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
   const [isFiling, setIsFiling] = useState(false);
-
-  // Local session history (in-memory, distinct from persisted receipts ledger)
   const [sessionHistory, setSessionHistory] = useState<SessionHistoryEntry[]>([]);
 
-  // API Hooks
+  // Track physical integrity over the session
+  const physicalIntegrityRef = useRef(true);
+
+  // Motion lock: pauses timer and flashes red on phone movement > 2.0 m/s²
+  const handleMotionInterrupt = useCallback(() => {
+    setIsSessionActive(false);
+    physicalIntegrityRef.current = false;
+    console.log('[Bio-Ledger] Interruption Event: focus timer paused');
+  }, []);
+
+  const motionLock = useMotionLock(isSessionActive, handleMotionInterrupt);
+
+  // Camera / Sovereign Senses: active while session running
+  const camera = useCamera(isSessionActive);
+
   const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
   const createReceiptMutation = useCreateReceipt();
 
-  // Timer Logic
+  // Reset integrity tracking when session starts
+  useEffect(() => {
+    if (isSessionActive) {
+      physicalIntegrityRef.current = true;
+    }
+  }, [isSessionActive]);
+
+  // Timer countdown
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isSessionActive && timeLeft > 0) {
@@ -51,6 +72,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
       handleSessionComplete();
     }
     return () => clearInterval(interval);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isSessionActive, timeLeft]);
 
   const handleSessionComplete = async () => {
@@ -66,15 +88,21 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
       focusScore,
     };
 
+    // physicalIntegrity: no motion violations AND camera detected face throughout
+    const physicalIntegrity =
+      physicalIntegrityRef.current &&
+      motionLock.physicalIntegrity &&
+      camera.faceDetected;
+
     const signedReceipt = await signWorkReceipt(nullifierHash, stats);
     const cid = await storeToFilecoin(signedReceipt);
     signedReceipt.receiptCid = cid;
 
-    // Record in local session history immediately (before network round-trip)
     const historyEntry: SessionHistoryEntry = {
       id: crypto.randomUUID(),
       completedAt: new Date(),
       ...stats,
+      physicalIntegrity,
     };
     setSessionHistory((prev) => [historyEntry, ...prev]);
 
@@ -83,6 +111,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
       sessionStats: stats,
       companionSignature: signedReceipt.companionSignature,
       receiptCid: cid,
+      physicalIntegrity,
     };
 
     createReceiptMutation.mutate(
@@ -94,7 +123,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
           refetchReceipts();
         },
         onError: (err: unknown) => {
-          console.error("Failed to save receipt", err);
+          console.error('Failed to save receipt', err);
           setIsFiling(false);
           setTimeLeft(POMODORO_TIME);
         },
@@ -103,7 +132,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
   };
 
   const toggleTimer = () => {
-    setIsSessionActive(!isSessionActive);
+    setIsSessionActive((prev) => !prev);
   };
 
   const formatTime = (seconds: number) => {
@@ -113,13 +142,43 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
   };
 
   return (
-    <div className="min-h-screen w-full bg-background scanlines flex flex-col md:flex-row overflow-hidden text-foreground">
-      
+    <motion.div
+      className="min-h-screen w-full bg-background scanlines flex flex-col md:flex-row overflow-hidden text-foreground relative"
+      animate={
+        motionLock.isInterrupted
+          ? { backgroundColor: ['#2D1B4E', '#4a0000', '#2D1B4E', '#4a0000', '#2D1B4E'] }
+          : { backgroundColor: '#2D1B4E' }
+      }
+      transition={{ duration: 0.4, repeat: motionLock.isInterrupted ? 3 : 0 }}
+    >
+      {/* Motion Interruption Flash Banner */}
+      <AnimatePresence>
+        {motionLock.isInterrupted && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="absolute top-0 inset-x-0 z-50 bg-red-900/90 border-b-2 border-red-500 px-4 py-2 flex items-center justify-center gap-3"
+          >
+            <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
+            <span className="font-pixel text-xs text-red-300">
+              MOTION LOCK TRIGGERED — FLOW PAUSED
+            </span>
+            <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* LEFT PANE: LIVING ROOM */}
-      <div className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-4 md:border-b-0 md:border-r-4 border-secondary overflow-hidden flex flex-col">
+      <div
+        className={cn(
+          'w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-4 md:border-b-0 md:border-r-4 overflow-hidden flex flex-col transition-colors duration-300',
+          motionLock.isInterrupted ? 'border-red-700' : 'border-secondary'
+        )}
+      >
         {/* Background */}
         <div className="absolute inset-0 z-0">
-          <img 
+          <img
             src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
             alt="Room Background"
             className="w-full h-full object-cover opacity-30"
@@ -136,7 +195,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
               ID: {truncateHash(nullifierHash)}
             </div>
           </div>
-          <button 
+          <button
             onClick={onLogout}
             className="p-2 bg-card border-2 border-muted hover:border-accent text-muted-foreground hover:text-accent transition-colors cursor-pointer"
             title="Lock Vault"
@@ -149,32 +208,30 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
         <div className="relative z-10 flex-1 flex items-center justify-center">
           <motion.div
             animate={{ y: [0, -5, 0] }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
             className="relative"
           >
-            <img 
-              src={`${import.meta.env.BASE_URL}images/avatar.png`} 
+            <img
+              src={`${import.meta.env.BASE_URL}images/avatar.png`}
               alt="User Avatar"
               className="w-48 h-48 sm:w-64 sm:h-64 object-contain filter drop-shadow-[0_0_15px_rgba(112,41,99,0.5)]"
             />
-            
-            {/* Companion AI */}
             <motion.div
-              animate={{ 
-                y: [0, -10, 0],
-                x: [0, 5, 0]
-              }}
-              transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+              animate={{ y: [0, -10, 0], x: [0, 5, 0] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
               className="absolute -top-10 -right-10 w-24 h-24"
             >
-              <img 
-                src={`${import.meta.env.BASE_URL}images/companion.png`} 
+              <img
+                src={`${import.meta.env.BASE_URL}images/companion.png`}
                 alt="Companion AI"
                 className="w-full h-full object-contain filter drop-shadow-[0_0_10px_rgba(0,245,255,0.8)]"
               />
             </motion.div>
           </motion.div>
         </div>
+
+        {/* Camera Lens — Sovereign Senses */}
+        <CameraLens camera={camera} isSessionActive={isSessionActive} />
 
         {/* Bottom: Bio-Markers */}
         <div className="relative z-10 p-4 sm:p-8 flex gap-4">
@@ -202,7 +259,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
 
       {/* RIGHT PANE: LEDGER */}
       <div className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col bg-background/95">
-        
+
         {/* Top: Timer & Stats */}
         <div className="p-4 sm:p-8 border-b-4 border-secondary/30">
           <div className="flex justify-between items-end mb-6">
@@ -210,28 +267,51 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
               <div className="flex items-center gap-2 mb-2 text-muted-foreground font-pixel text-[10px]">
                 <Clock className="w-4 h-4 text-primary" />
                 FOCUS TIMER
+                {isSessionActive && motionLock.violationCount > 0 && (
+                  <span className="text-red-400 ml-1">
+                    ⚡ {motionLock.violationCount}
+                  </span>
+                )}
               </div>
-              <div className={cn(
-                "text-6xl sm:text-8xl font-terminal font-bold transition-colors duration-500",
-                isSessionActive ? "text-primary text-shadow-neon" : "text-foreground"
-              )}>
+              <div
+                className={cn(
+                  'text-6xl sm:text-8xl font-terminal font-bold transition-colors duration-500',
+                  motionLock.isInterrupted
+                    ? 'text-red-500'
+                    : isSessionActive
+                    ? 'text-primary text-shadow-neon'
+                    : 'text-foreground'
+                )}
+              >
                 {formatTime(timeLeft)}
               </div>
             </div>
-            <div className="text-right pb-2">
+            <div className="text-right pb-2 flex flex-col gap-1 items-end">
               <div className="flex items-center justify-end gap-2 mb-1 text-muted-foreground font-pixel text-[10px]">
                 <MousePointer2 className="w-3 h-3 text-primary" />
                 APM
               </div>
-              <div className="text-2xl sm:text-4xl font-terminal text-primary">
-                {apm}
-              </div>
+              <div className="text-2xl sm:text-4xl font-terminal text-primary">{apm}</div>
+              {/* Physical integrity indicator */}
+              {isSessionActive && (
+                <div
+                  className={cn(
+                    'flex items-center gap-1 font-pixel text-[8px] mt-1',
+                    motionLock.physicalIntegrity && camera.faceDetected
+                      ? 'text-primary'
+                      : 'text-red-400'
+                  )}
+                >
+                  <Shield className="w-3 h-3" />
+                  {motionLock.physicalIntegrity && camera.faceDetected ? 'INTEGRITY OK' : 'INTEGRITY LOST'}
+                </div>
+              )}
             </div>
           </div>
 
           <AnimatePresence mode="wait">
             {isFiling ? (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
@@ -241,16 +321,13 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
                 FILING TO FILECOIN...
               </motion.div>
             ) : (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-              >
-                <PixelButton 
-                  onClick={toggleTimer} 
-                  variant={isSessionActive ? "danger" : "primary"}
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                <PixelButton
+                  onClick={toggleTimer}
+                  variant={isSessionActive ? 'danger' : 'primary'}
                   className="w-full text-lg"
                 >
-                  {isSessionActive ? "ABORT FLOW" : "ENGAGE FLOW"}
+                  {isSessionActive ? 'ABORT FLOW' : 'ENGAGE FLOW'}
                 </PixelButton>
               </motion.div>
             )}
@@ -259,7 +336,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
 
         {/* Bottom: Receipt Log */}
         <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
-          {/* Session History (in-memory, current app session) */}
+          {/* Session History */}
           {sessionHistory.length > 0 && (
             <div className="mb-4">
               <h3 className="font-pixel text-[10px] mb-2 text-accent border-b-2 border-accent/20 pb-1">
@@ -267,15 +344,26 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
               </h3>
               <div className="flex flex-col gap-1">
                 {sessionHistory.map((entry) => (
-                  <div key={entry.id} className="flex items-center justify-between bg-accent/5 border-l-2 border-accent px-3 py-1">
+                  <div
+                    key={entry.id}
+                    className="flex items-center justify-between bg-accent/5 border-l-2 border-accent px-3 py-1"
+                  >
                     <span className="font-terminal text-xs text-muted-foreground">
-                      {format(entry.completedAt, "HH:mm")}
+                      {format(entry.completedAt, 'HH:mm')}
                     </span>
                     <span className="font-terminal text-xs">
                       Score <NeonText>{entry.focusScore}</NeonText>
                     </span>
                     <span className="font-terminal text-xs text-muted-foreground">
                       APM {entry.apm} · HRV {entry.hrv}
+                    </span>
+                    <span
+                      className={cn(
+                        'font-pixel text-[8px]',
+                        entry.physicalIntegrity ? 'text-primary' : 'text-red-400'
+                      )}
+                    >
+                      {entry.physicalIntegrity ? '✓ INT' : '✗ INT'}
                     </span>
                   </div>
                 ))}
@@ -286,7 +374,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
           <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2">
             AGENTIC WORK RECEIPTS (ERC-8004)
           </h3>
-          
+
           <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-3">
             {isReceiptsLoading ? (
               <div className="text-center font-terminal text-muted-foreground py-8 animate-pulse">
@@ -294,18 +382,38 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
               </div>
             ) : receipts && receipts.length > 0 ? (
               receipts.map((receipt) => (
-                <div key={receipt.id} className="bg-card border-l-4 border-primary p-4 hover:bg-card/80 transition-colors">
+                <div
+                  key={receipt.id}
+                  className="bg-card border-l-4 border-primary p-4 hover:bg-card/80 transition-colors"
+                >
                   <div className="flex justify-between items-start mb-2">
                     <span className="font-terminal text-xs text-muted-foreground">
-                      {format(new Date(receipt.createdAt), "MMM dd, yyyy HH:mm")}
+                      {format(new Date(receipt.createdAt), 'MMM dd, yyyy HH:mm')}
                     </span>
-                    <span className="font-pixel text-[8px] px-2 py-1 bg-primary/10 text-primary border border-primary/30">
-                      VERIFIED
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {receipt.physicalIntegrity !== undefined && (
+                        <span
+                          className={cn(
+                            'font-pixel text-[7px] px-1.5 py-0.5 border',
+                            receipt.physicalIntegrity
+                              ? 'bg-primary/10 text-primary border-primary/30'
+                              : 'bg-red-900/20 text-red-400 border-red-700/30'
+                          )}
+                        >
+                          {receipt.physicalIntegrity ? '⬡ INTEGRITY' : '⚠ DISRUPTED'}
+                        </span>
+                      )}
+                      <span className="font-pixel text-[8px] px-2 py-1 bg-primary/10 text-primary border border-primary/30">
+                        VERIFIED
+                      </span>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 mb-3">
                     <div className="font-terminal text-lg">
-                      Dur: <span className="text-foreground">{Math.round(receipt.sessionStats.durationSeconds / 60)}m</span>
+                      Dur:{' '}
+                      <span className="text-foreground">
+                        {Math.round(receipt.sessionStats.durationSeconds / 60)}m
+                      </span>
                     </div>
                     <div className="font-terminal text-lg">
                       APM: <span className="text-foreground">{receipt.sessionStats.apm}</span>
@@ -318,9 +426,15 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
                     </div>
                   </div>
                   <div className="bg-background/50 p-2 font-terminal text-[10px] sm:text-xs text-muted-foreground break-all rounded-sm border border-secondary/20">
-                    <div className="flex gap-2"><span className="text-accent">SIG:</span> {truncateHash(receipt.companionSignature)}</div>
+                    <div className="flex gap-2">
+                      <span className="text-accent">SIG:</span>{' '}
+                      {truncateHash(receipt.companionSignature)}
+                    </div>
                     {receipt.receiptCid && (
-                      <div className="flex gap-2"><span className="text-primary">CID:</span> {truncateHash(receipt.receiptCid)}</div>
+                      <div className="flex gap-2">
+                        <span className="text-primary">CID:</span>{' '}
+                        {truncateHash(receipt.receiptCid)}
+                      </div>
                     )}
                   </div>
                 </div>
@@ -332,8 +446,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
             )}
           </div>
         </div>
-
       </div>
-    </div>
+    </motion.div>
   );
 }
