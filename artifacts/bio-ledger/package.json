@@ -76,6 +76,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^0.10.34",
     "@worldcoin/idkit": "^4.0.11"
   }
 }

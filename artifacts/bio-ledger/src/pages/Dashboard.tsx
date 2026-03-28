@@ -126,7 +126,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       motionLock.physicalIntegrity &&
       camera.faceDetected;
 
-    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current);
+    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
     const pieceCid = await storeToFilecoin(signedReceipt);
 
     const historyEntry: SessionHistoryEntry = {
@@ -170,8 +170,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const isInterrupted = motionLock.isInterrupted;
 
   // Companion state
-  const companionState: 'signing' | 'presence-lost' | 'active' | 'idle' =
-    isFiling ? 'signing' : presenceLost ? 'presence-lost' : isSessionActive ? 'active' : 'idle';
+  const companionState: 'signing' | 'presence-lost' | 'posture' | 'active' | 'idle' =
+    isFiling
+      ? 'signing'
+      : presenceLost
+      ? 'presence-lost'
+      : camera.postureWarning && isSessionActive
+      ? 'posture'
+      : isSessionActive
+      ? 'active'
+      : 'idle';
 
   return (
     <motion.div
@@ -227,11 +235,29 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         )}
       </AnimatePresence>
 
+      {/* Posture Warning Banner */}
+      <AnimatePresence>
+        {camera.postureWarning && isSessionActive && !presenceLost && !isInterrupted && (
+          <motion.div
+            initial={{ opacity: 0, y: -40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -40 }}
+            className="absolute top-0 inset-x-0 z-50 bg-yellow-950/95 border-b-2 border-yellow-600 px-4 py-2 flex items-center justify-center gap-3"
+          >
+            <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
+            <span className="font-pixel text-[10px] text-yellow-300">
+              POSTURE WARNING — STRAIGHTEN UP
+            </span>
+            <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ═══════════════ LEFT PANE: LIVING ROOM ═══════════════ */}
       <div
         className={cn(
           'w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-4 md:border-b-0 md:border-r-4 overflow-hidden flex flex-col transition-colors duration-300',
-          isInterrupted || presenceLost ? 'border-red-700' : 'border-secondary'
+          isInterrupted || presenceLost ? 'border-red-700' : camera.postureWarning ? 'border-yellow-600' : 'border-secondary'
         )}
       >
         <div className="absolute inset-0 z-0">
@@ -287,6 +313,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { y: [0, -15, 0, -10, 0], x: [0, 8, -8, 4, 0], scale: [1, 1.15, 1, 1.1, 1] }
                   : companionState === 'presence-lost'
                   ? { rotate: [0, -5, 5, -5, 0] }
+                  : companionState === 'posture'
+                  ? { rotate: [0, -3, 3, -2, 0], y: [0, 3, 0] }
                   : companionState === 'active'
                   ? { y: [0, -10, 0], x: [0, 5, 0] }
                   : { y: [0, -10, 0], x: [0, 5, 0] }
@@ -296,6 +324,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }
                   : companionState === 'presence-lost'
                   ? { duration: 0.4, repeat: Infinity }
+                  : companionState === 'posture'
+                  ? { duration: 0.8, repeat: Infinity }
                   : { duration: 3, repeat: Infinity, ease: 'easeInOut' }
               }
               className="absolute -top-10 -right-10 w-24 h-24"
@@ -304,6 +334,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { filter: 'drop-shadow(0 0 16px #00F5FF) drop-shadow(0 0 6px #00F5FF)' }
                   : companionState === 'presence-lost'
                   ? { filter: 'drop-shadow(0 0 12px #ef4444) hue-rotate(300deg)' }
+                  : companionState === 'posture'
+                  ? { filter: 'drop-shadow(0 0 10px #facc15) sepia(0.8)' }
                   : {}
               }
             >
@@ -320,6 +352,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-primary bg-background/90 px-2 py-0.5 border border-primary/50"
                 >
                   SIGNING...
+                </motion.div>
+              )}
+              {/* Posture warning badge */}
+              {companionState === 'posture' && (
+                <motion.div
+                  animate={{ opacity: [0, 1, 0] }}
+                  transition={{ duration: 0.6, repeat: Infinity }}
+                  className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-yellow-400 bg-background/90 px-2 py-0.5 border border-yellow-600/50"
+                >
+                  POSTURE!
                 </motion.div>
               )}
               {/* Presence lost badge */}
