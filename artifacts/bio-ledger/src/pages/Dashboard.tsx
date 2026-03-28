@@ -96,6 +96,7 @@ export default function Dashboard({ nullifierHash, onLogout }: DashboardProps) {
         onError: (err: unknown) => {
           console.error("Failed to save receipt", err);
           setIsFiling(false);
+          setTimeLeft(POMODORO_TIME);
         },
       }
     );

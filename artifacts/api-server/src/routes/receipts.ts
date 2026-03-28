@@ -14,16 +14,16 @@ router.get("/receipts", async (req, res) => {
 
   const { nullifier } = query.data;
 
-  const receipts = nullifier
-    ? await db
-        .select()
-        .from(workReceiptsTable)
-        .where(eq(workReceiptsTable.nullifierHash, nullifier))
-        .orderBy(workReceiptsTable.createdAt)
-    : await db
-        .select()
-        .from(workReceiptsTable)
-        .orderBy(workReceiptsTable.createdAt);
+  if (!nullifier) {
+    res.status(400).json({ error: "nullifier query param is required" });
+    return;
+  }
+
+  const receipts = await db
+    .select()
+    .from(workReceiptsTable)
+    .where(eq(workReceiptsTable.nullifierHash, nullifier))
+    .orderBy(workReceiptsTable.createdAt);
 
   res.json(
     receipts.map((r) => ({

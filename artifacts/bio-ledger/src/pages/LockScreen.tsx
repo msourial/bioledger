@@ -108,12 +108,14 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 VERIFY WITH WORLD ID
               </PixelButton>
 
-              <button
-                onClick={handleDevBypass}
-                className="mt-4 text-[10px] font-pixel text-muted-foreground hover:text-accent underline underline-offset-4 transition-colors"
-              >
-                [DEV BYPASS] Skip Verification
-              </button>
+              {import.meta.env.DEV && (
+                <button
+                  onClick={handleDevBypass}
+                  className="mt-4 text-[10px] font-pixel text-muted-foreground hover:text-accent underline underline-offset-4 transition-colors"
+                >
+                  [DEV BYPASS] Skip Verification
+                </button>
+              )}
             </div>
           )}
         </PixelPanel>
