@@ -200,7 +200,7 @@ router.get("/aura/logs", async (req, res) => {
               physical_integrity: r.physicalIntegrity ?? false,
               receipt_cid: r.receiptCid ?? null,
             },
-        status: isInsight ? "success" : cidStatus === "stored" ? "success" : cidStatus === "failed" ? "partial" : "pending",
+        status: isInsight ? "success" : cidStatus === "stored" ? "success" : cidStatus === "failed" ? "failed" : "partial",
         is_demo: r.isDemo ?? false,
       };
     }),
