@@ -50,8 +50,8 @@ function buildSteps(receipt: WorkReceipt): ChainStep[] {
     {
       label: 'BIOMETRICS',
       sublabel: 'WHOOP · MEDIAPIPE',
-      value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`,
-      detail: `Focus Score ${sessionStats.focusScore}/100 · ${physicalIntegrity ? 'Integrity ✓' : 'Integrity ✗'}`,
+      value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain} · Vision ${sessionStats.focusScore}/100`,
+      detail: physicalIntegrity ? 'Physical Integrity ✓' : 'Physical Integrity ✗',
       status: physicalIntegrity ? 'ok' : 'partial',
     },
     {
