@@ -55,11 +55,11 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
     <div className="relative z-10 px-4 sm:px-8 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
+        <div className="flex items-center gap-2 font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground/70">
           <Scan className="w-3 h-3 text-primary/70" />
           Sovereign Lens
         </div>
-        <span className={`font-terminal text-xs font-bold uppercase ${statusColor}`}>{statusText}</span>
+        <span className={`font-terminal text-sm font-bold uppercase ${statusColor}`}>{statusText}</span>
       </div>
 
       <div className="flex gap-4 items-stretch">
@@ -226,7 +226,7 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
               postureWarning ? 'border-yellow-700/40' : ''
             )}
           >
-            <span className="font-terminal text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
+            <span className="font-terminal text-sm font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
               Head
             </span>
             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
@@ -237,13 +237,13 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
               />
             </div>
             <span
-              className={`font-terminal text-xs font-bold leading-none ${
+              className={`font-terminal text-sm font-bold leading-none ${
                 postureWarning ? 'text-yellow-400' : 'text-primary'
               }`}
             >
               {frameDiff}%
               {postureWarning && (
-                <span className="font-pixel text-[6px] text-yellow-500/80 ml-1">SLOUCH!</span>
+                <span className="font-terminal text-sm font-bold text-yellow-500 ml-1">!</span>
               )}
             </span>
           </div>
@@ -287,11 +287,11 @@ function HudTile({ label, value, valueColor, sub, subColor = 'text-muted-foregro
         alert ? 'border-red-700/40' : ''
       )}
     >
-      <span className="font-terminal text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
+      <span className="font-terminal text-sm font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
         {label}
       </span>
       <span className={`font-terminal text-base font-bold leading-tight ${valueColor}`}>{value}</span>
-      {sub && <span className={`font-pixel text-[7px] leading-none ${subColor}`}>{sub}</span>}
+      {sub && <span className={`font-terminal text-sm font-bold leading-none ${subColor}`}>{sub}</span>}
     </div>
   );
 }

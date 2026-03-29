@@ -479,7 +479,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                     )}
                   />
                 ))}
-                <span className="font-terminal text-xs font-bold text-muted-foreground/60 ml-2">
+                <span className="font-terminal text-sm font-bold text-muted-foreground/60 ml-2">
                   Step {currentDemoPhase.step}/{DEMO_PHASES.length}
                 </span>
               </div>
@@ -489,7 +489,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   <span className="font-terminal text-sm font-bold text-primary mr-2">
                     ⬡ {currentDemoPhase.label}
                   </span>
-                  <span className="font-terminal text-xs text-muted-foreground">
+                  <span className="font-terminal text-sm text-muted-foreground">
                     {currentDemoPhase.msg}
                   </span>
                 </div>
@@ -514,7 +514,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               <HardDrive className="w-4 h-4 text-primary animate-bounce flex-shrink-0" />
               <div>
                 <span className="font-terminal text-sm font-bold text-primary mr-2">⬡ Storage</span>
-                <span className="font-terminal text-xs text-muted-foreground">{filingPhase}</span>
+                <span className="font-terminal text-sm text-muted-foreground">{filingPhase}</span>
               </div>
             </div>
           </motion.div>
@@ -696,10 +696,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         <div className="relative z-10 p-4 sm:p-8 flex gap-4">
           <PixelPanel className="flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center gap-2 font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 <Activity className="w-3.5 h-3.5 text-accent flex-shrink-0" />
                 HRV
-                <span className="font-terminal text-[10px] font-normal text-muted-foreground/50 normal-case tracking-normal">ms</span>
+                <span className="font-terminal text-sm font-normal text-muted-foreground/50 normal-case tracking-normal">ms</span>
               </div>
               <ProvBadge onClick={() => setProvenanceMetric('HRV')} />
             </div>
@@ -709,7 +709,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           </PixelPanel>
           <PixelPanel className="flex-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
+              <div className="flex items-center gap-2 font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">
                 <Brain className="w-3.5 h-3.5 text-accent flex-shrink-0" />
                 STRAIN
               </div>
@@ -772,14 +772,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             <div className="text-right pb-2 flex flex-col gap-1 items-end">
               <div className="flex items-center justify-end gap-1.5 mb-1">
                 <MousePointer2 className="w-3.5 h-3.5 text-primary" />
-                <span className="font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">APM</span>
+                <span className="font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">APM</span>
                 <ProvBadge onClick={() => setProvenanceMetric('APM')} />
               </div>
               <AnimatedNumber value={apm} className="text-3xl sm:text-4xl font-terminal font-bold text-primary text-shadow-neon" />
               {isSessionActive && (
                 <div
                   className={cn(
-                    'flex items-center gap-1 font-pixel text-[8px] mt-1',
+                    'flex items-center gap-1 font-terminal text-sm font-bold mt-1',
                     motionLock.physicalIntegrity && camera.faceDetected
                       ? 'text-primary'
                       : 'text-red-400'
@@ -794,7 +794,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 </div>
               )}
               {isSessionActive && camera.isActive && camera.faceDetected && camera.secondsUntilLock < 4 && (
-                <div className="font-pixel text-[8px] text-yellow-400 mt-0.5">
+                <div className="font-terminal text-sm font-bold text-yellow-400 mt-0.5">
                   ⏳ {camera.secondsUntilLock}s
                 </div>
               )}
@@ -814,7 +814,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   <HardDrive className="w-4 h-4 animate-bounce" />
                   {filingPhase ?? 'AURA AGENT SIGNING & FILING TO FILECOIN...'}
                 </div>
-                <p className="text-[8px] text-primary/60">ERC-8004 · SYNAPSE SDK</p>
+                <p className="font-terminal text-sm text-primary/60">ERC-8004 · SYNAPSE SDK</p>
               </motion.div>
             ) : (
               <motion.div key="controls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
@@ -912,14 +912,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ))
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-8 text-center">
-                    <div className="font-terminal text-xs font-bold text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full uppercase tracking-widest">
+                    <div className="font-terminal text-sm font-bold text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full uppercase tracking-widest">
                       No Receipts Yet
                     </div>
                     <p className="font-terminal text-sm text-muted-foreground/50">
                       Complete a focus session to mint your first<br />
                       ERC-8004 Agentic Work Receipt on Filecoin.
                     </p>
-                    <p className="font-terminal text-xs text-primary/60 border border-primary/20 px-3 py-2 font-bold uppercase tracking-wider">
+                    <p className="font-terminal text-sm text-primary/60 border border-primary/20 px-3 py-2 font-bold uppercase tracking-wider">
                       ⚡ Use Demo Mode (60s) to see the full flow
                     </p>
                   </div>
@@ -983,7 +983,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 className="overflow-hidden"
               >
                 <div className="px-4 sm:px-8 pb-4 pt-1 flex flex-col gap-2">
-                  <p className="font-terminal text-[10px] text-muted-foreground/60 mb-1">
+                  <p className="font-terminal text-sm text-muted-foreground/60 mb-1">
                     Download verifiable agent artifacts for hackathon submission.
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -1026,7 +1026,7 @@ function ExportButton({ label, sublabel, onClick }: { label: string; sublabel: s
         <Download className="w-2.5 h-2.5 text-primary flex-shrink-0" />
         <span className="font-pixel text-[7px] text-primary">{label}</span>
       </div>
-      <span className="font-terminal text-[9px] text-muted-foreground/60 ml-4">{sublabel}</span>
+      <span className="font-terminal text-sm text-muted-foreground/60 ml-4">{sublabel}</span>
     </motion.button>
   );
 }
