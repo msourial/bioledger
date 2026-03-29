@@ -25,17 +25,26 @@ The primary app is **Bio-Ledger** — a Verifiable Life-Graph PWA for the PL Gen
 
 1. **Protocol Labs bounty**: Filecoin warm storage via Synapse SDK (stub/mock in dev)
 2. **ERC-8004 bounty**: AI Companion Agent signs Work Receipts (HMAC-SHA256) after each 25m focus session
-3. **World ID bounty**: Identity gate unlocking the "Sovereign Vault" using IDKit v2
+3. **World ID bounty**: Identity gate unlocking the "Sovereign Vault" using real IDKit v4 (`IDKitRequestWidget` + server-side proof verification). Falls back to simulation when env vars are absent.
 
 ### Key Files
-- `artifacts/bio-ledger/src/pages/LockScreen.tsx` — World ID gate (IDKitRequestWidget)
+- `artifacts/bio-ledger/src/pages/LockScreen.tsx` — World ID gate (IDKitRequestWidget v4, falls back to simulation)
 - `artifacts/bio-ledger/src/pages/Dashboard.tsx` — Split-pane main app (Living Room + Ledger)
 - `artifacts/bio-ledger/src/lib/whoop-mock.ts` — Mocked Whoop HRV/Strain bio-data (useMockBioData hook)
 - `artifacts/bio-ledger/src/lib/companion-agent.ts` — Work Receipt HMAC signing + Filecoin stub
 - `artifacts/bio-ledger/src/hooks/use-apm.ts` — Mouse/keyboard APM tracker
 - `artifacts/bio-ledger/src/components/PixelUI.tsx` — Pixel-art UI components
 - `artifacts/api-server/src/routes/receipts.ts` — REST API for Work Receipts
+- `artifacts/api-server/src/routes/world-id.ts` — World ID config/RP-context/verify endpoints
 - `lib/db/src/schema/work-receipts.ts` — work_receipts table (Drizzle ORM)
+
+### World ID Environment Variables
+Set these to enable the real on-chain ZK proof flow:
+- `WORLD_ID_APP_ID` — App ID from developer.worldcoin.org (format: `app_xxxxx`)
+- `WORLD_ID_ACTION` — Action string (default: `bio-ledger-verify`)
+- `WORLD_ID_RP_ID` — Relying Party ID from developer.worldcoin.org (format: `rp_xxxxx`)
+- `WORLD_ID_SIGNING_KEY` — ECDSA private key hex (from RP keypair in Developer Portal)
+When absent, the lock screen runs a cosmetic ZK simulation ("DEMO MODE").
 
 ### Design Palette
 - Background: #2D1B4E (Deep Purple)

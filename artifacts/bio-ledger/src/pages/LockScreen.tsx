@@ -1,7 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { IDKitRequestWidget, deviceLegacy } from '@worldcoin/idkit';
+import type { IDKitResult } from '@worldcoin/idkit';
 import { PixelButton, NeonText, PixelPanel } from '@/components/PixelUI';
-import { Lock, ShieldCheck, Cpu, Activity, Wifi, WifiOff } from 'lucide-react';
+import { Lock, ShieldCheck, Cpu, Activity, Wifi, WifiOff, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface LockScreenProps {
@@ -17,6 +19,7 @@ type Phase =
   | 'bio-done'
   | 'entering';
 
+/** Simulated ZK steps shown while the real IDKit widget is open, or as demo fallback */
 const ZK_STEPS = [
   'INITIALIZING ZK CIRCUIT...',
   'GENERATING SEMAPHORE PROOF...',
@@ -32,16 +35,24 @@ const BIO_STEPS = [
   'DEMO MODE ACTIVATED',
 ];
 
-function generateNullifier(): string {
-  const bytes = new Uint8Array(31);
-  crypto.getRandomValues(bytes);
-  return (
-    '0x' +
-    Array.from(bytes)
-      .map((b) => b.toString(16).padStart(2, '0'))
-      .join('')
-  );
+/** World ID configuration retrieved from the API server */
+interface WorldIdConfig {
+  configured: boolean;
+  app_id: string | null;
+  action: string;
+  rp_id: string | null;
 }
+
+/** RP context returned by the API server for the IDKit widget */
+interface RpContext {
+  rp_id: string;
+  nonce: string;
+  created_at: number;
+  expires_at: number;
+  signature: string;
+}
+
+const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 export default function LockScreen({ onVerify }: LockScreenProps) {
   const [phase, setPhase] = useState<Phase>('idle');
@@ -49,16 +60,26 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
   const [nullifier, setNullifier] = useState('');
   const [bioSourceConnected, setBioSourceConnected] = useState(false);
 
-  /* ── Step 1: World ID ZK Proof ── */
-  const handleWorldId = () => {
-    if (phase !== 'idle') return;
-    // Reuse existing nullifier if one is saved — World ID is deterministic per identity
-    const existing = localStorage.getItem('bio_ledger_nullifier');
-    const hash = existing ?? generateNullifier();
+  // Real World ID state
+  const [worldIdConfig, setWorldIdConfig] = useState<WorldIdConfig | null>(null);
+  const [rpContext, setRpContext] = useState<RpContext | null>(null);
+  const [widgetOpen, setWidgetOpen] = useState(false);
+  const [verifyError, setVerifyError] = useState<string | null>(null);
+
+  // Fetch World ID configuration from backend on mount
+  useEffect(() => {
+    fetch(`${API}/api/world-id/config`)
+      .then((r) => r.json())
+      .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
+      .catch(() => setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null }));
+  }, []);
+
+  // ── Simulation fallback (used when World ID is not configured) ─────────
+  function runSimulation(existingNullifier?: string) {
+    const hash = existingNullifier ?? generateNullifier();
     setNullifier(hash);
     setPhase('zk-verifying');
     setStepIndex(0);
-
     ZK_STEPS.forEach((_, i) => {
       setTimeout(() => {
         setStepIndex(i);
@@ -67,29 +88,109 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
         }
       }, i * 700);
     });
+  }
+
+  // ── Step 1: "Verify with World ID" clicked ────────────────────────────
+  const handleWorldId = async () => {
+    if (phase !== 'idle') return;
+    setVerifyError(null);
+
+    const existing = localStorage.getItem('bio_ledger_nullifier');
+
+    if (!worldIdConfig?.configured) {
+      // No real creds — run the simulation
+      runSimulation(existing ?? undefined);
+      return;
+    }
+
+    // Fetch RP context from the backend before opening the widget
+    try {
+      const res = await fetch(`${API}/api/world-id/rp-context`);
+      if (!res.ok) throw new Error(await res.text());
+      const ctx: RpContext = await res.json();
+      setRpContext(ctx);
+      setWidgetOpen(true);
+    } catch (err) {
+      // Backend error — fall back to simulation with a notice
+      console.error('[World ID] Failed to fetch RP context:', err);
+      setVerifyError('Could not reach verification backend. Running in demo mode.');
+      runSimulation(existing ?? undefined);
+    }
   };
 
-  /* ── Step 2: Bio-Source OAuth (Whoop / Demo) ── */
+  // ── IDKit: server-side proof verification (handleVerify) ──────────────
+  const handleVerify = useCallback(async (result: IDKitResult) => {
+    // Extract proof fields from either v3 or v4 result
+    const response = result.responses?.[0];
+    if (!response) throw new Error('No credential in proof result');
+
+    let nullifier_hash: string;
+    let proof: string | string[];
+    let merkle_root: string | undefined;
+
+    if (result.protocol_version === '3.0') {
+      const r = response as { nullifier: string; proof: string; merkle_root: string };
+      nullifier_hash = r.nullifier;
+      proof = r.proof;
+      merkle_root = r.merkle_root;
+    } else {
+      const r = response as { nullifier: string; proof: string[] };
+      nullifier_hash = r.nullifier;
+      proof = r.proof;
+    }
+
+    const verifyRes = await fetch(`${API}/api/world-id/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nullifier_hash,
+        merkle_root,
+        proof,
+        verification_level: 'device',
+        protocol_version: result.protocol_version,
+      }),
+    });
+
+    if (!verifyRes.ok) {
+      const err = await verifyRes.json().catch(() => ({}));
+      throw new Error(err.error ?? 'Server verification failed');
+    }
+
+    const data = await verifyRes.json();
+    // Persist the verified nullifier for future sessions
+    localStorage.setItem('bio_ledger_nullifier', data.nullifier_hash);
+    setNullifier(data.nullifier_hash);
+  }, []);
+
+  // ── IDKit: success — move to bio-sources step ─────────────────────────
+  const handleSuccess = useCallback((_result: IDKitResult) => {
+    setWidgetOpen(false);
+    setPhase('zk-done');
+  }, []);
+
+  // ── IDKit: error ───────────────────────────────────────────────────────
+  const handleError = useCallback(() => {
+    setWidgetOpen(false);
+    setVerifyError('World ID verification failed. Please try again.');
+  }, []);
+
+  // ── Step 2: Bio-Source OAuth (Whoop / Demo) ───────────────────────────
   const handleConnectWhoop = async () => {
     if (phase !== 'zk-done') return;
     setPhase('bio-connecting');
     setStepIndex(0);
 
     try {
-      const res = await fetch(
-        `${import.meta.env.VITE_API_BASE_URL ?? ''}/api/auth/whoop`
-      );
+      const res = await fetch(`${API}/api/auth/whoop`);
       const data = await res.json();
-
       if (data.mode === 'oauth' && data.authUrl) {
         window.location.href = data.authUrl;
         return;
       }
     } catch {
-      // Network error — fall through to demo mode
+      // network error — fall through to demo mode
     }
 
-    // Demo mode animation
     BIO_STEPS.forEach((_, i) => {
       setTimeout(() => {
         setStepIndex(i);
@@ -119,12 +220,36 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
   const steps = phase === 'bio-connecting' ? BIO_STEPS : ZK_STEPS;
 
+  // ── IDKit widget props (only constructed when configured) ─────────────
+  const widgetProps =
+    worldIdConfig?.configured && worldIdConfig.app_id && rpContext
+      ? {
+          app_id: worldIdConfig.app_id as `app_${string}`,
+          action: worldIdConfig.action,
+          rp_context: rpContext,
+          allow_legacy_proofs: true as const,
+          preset: deviceLegacy(),
+          open: widgetOpen,
+          onOpenChange: setWidgetOpen,
+          handleVerify,
+          onSuccess: handleSuccess,
+          onError: handleError,
+        }
+      : null;
+
   return (
     <div className="min-h-screen w-full flex items-center justify-center scanlines relative overflow-hidden bg-background">
       <div className="absolute inset-0 z-0 opacity-20">
         <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-pulse" />
         <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl animate-pulse" />
       </div>
+
+      {/* Real IDKit widget — rendered but controlled via `open` prop */}
+      {widgetProps && (
+        <IDKitRequestWidget {...widgetProps}>
+          {() => null}
+        </IDKitRequestWidget>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -174,10 +299,30 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
             <span>BIO-SOURCES</span>
           </div>
 
+          {/* World ID badge — shows "REAL" vs "DEMO" */}
+          {worldIdConfig && (
+            <div className={`w-full flex items-center justify-center gap-1.5 mb-3 font-pixel text-[7px] ${worldIdConfig.configured ? 'text-primary/70' : 'text-muted-foreground/40'}`}>
+              <span className={`w-1.5 h-1.5 rounded-full inline-block ${worldIdConfig.configured ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+              {worldIdConfig.configured ? 'WORLD ID — LIVE ZK PROOF' : 'WORLD ID — DEMO MODE'}
+            </div>
+          )}
+
+          {/* Verify error notice */}
+          {verifyError && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="w-full flex items-center gap-2 bg-yellow-900/30 border border-yellow-700/40 p-2 mb-3 text-left"
+            >
+              <AlertTriangle className="w-3 h-3 text-yellow-400 flex-shrink-0" />
+              <span className="font-terminal text-[10px] text-yellow-300">{verifyError}</span>
+            </motion.div>
+          )}
+
           <div className="w-full h-px bg-secondary mb-8 opacity-30" />
 
           <AnimatePresence mode="wait">
-            {/* IDLE: Connect Identity */}
+            {/* IDLE */}
             {phase === 'idle' && (
               <motion.div
                 key="idle"
@@ -215,12 +360,12 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
-            {/* ZK Verifying animation */}
+            {/* ZK Verifying */}
             {phase === 'zk-verifying' && (
               <ZkAnimation steps={ZK_STEPS} stepIndex={stepIndex} label="VERIFYING WORLD ID..." />
             )}
 
-            {/* ZK Done → Bio-Sources choice */}
+            {/* ZK Done → Bio-Sources */}
             {phase === 'zk-done' && (
               <motion.div
                 key="zk-done"
@@ -233,6 +378,11 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   <ShieldCheck className="w-5 h-5" />
                   IDENTITY CONFIRMED
                 </div>
+                {worldIdConfig?.configured && (
+                  <p className="font-pixel text-[7px] text-primary/50 text-center">
+                    ✓ ZK PROOF VERIFIED ON-CHAIN
+                  </p>
+                )}
                 <div className="w-full h-px bg-secondary/40" />
                 <p className="font-terminal text-sm text-muted-foreground">
                   Connect your bio-data sources for certified metrics.
@@ -257,12 +407,12 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
               </motion.div>
             )}
 
-            {/* Bio-Source connecting animation */}
+            {/* Bio connecting */}
             {phase === 'bio-connecting' && (
               <ZkAnimation steps={BIO_STEPS} stepIndex={stepIndex} label="CONNECTING BIO-SOURCES..." />
             )}
 
-            {/* Bio Done */}
+            {/* Bio done / entering */}
             {(phase === 'bio-done' || phase === 'entering') && (
               <motion.div
                 key="bio-done"
@@ -289,6 +439,14 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       </motion.div>
     </div>
   );
+}
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+function generateNullifier(): string {
+  const bytes = new Uint8Array(31);
+  crypto.getRandomValues(bytes);
+  return '0x' + Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
 function StepDot({ active, label }: { active: boolean; label: string }) {
@@ -328,9 +486,7 @@ function ZkAnimation({ steps, stepIndex, label }: { steps: string[]; stepIndex: 
             key={step}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`font-terminal text-xs mb-1 ${
-              i === stepIndex ? 'text-primary' : 'text-muted-foreground/60'
-            }`}
+            className={`font-terminal text-xs mb-1 ${i === stepIndex ? 'text-primary' : 'text-muted-foreground/60'}`}
           >
             {i < stepIndex ? '✓ ' : '> '}
             {step}
