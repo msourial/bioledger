@@ -1,7 +1,13 @@
 import { Router, type IRouter } from "express";
 import { AuraChatBody } from "@workspace/api-zod";
+import { db, workReceiptsTable } from "@workspace/db";
+import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
+
+const AGENT_ID = "AURA-AGENT-V1";
+const HMAC_KEY = "bio-ledger-companion-v1-hackathon-key";
+const HMAC_KEY_FINGERPRINT = Buffer.from(HMAC_KEY).toString("hex").slice(0, 16);
 
 type BioContext = {
   hrv: number;
@@ -78,6 +84,136 @@ function ruleFallback(bio: BioContext, message: string): string {
   return `Current state: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Vision ${bio.focusScore}/100, APM ${bio.apm}. ${bio.hrv > 70 ? "Biometrics nominal — maintain current cadence." : "Moderate stress detected — monitor HRV trend."}`;
 }
 
+/* ─────────────────────────────────────────────────────────────
+   GET /api/aura/manifest — ERC-8004 agent capability manifest
+───────────────────────────────────────────────────────────── */
+router.get("/aura/manifest", (_req, res) => {
+  const manifest = {
+    spec_version: "erc-8004-draft",
+    agent_id: AGENT_ID,
+    name: "AURA — Autonomous Unified Response Agent",
+    version: "0.1.0-hackathon",
+    description:
+      "Sovereign biometric oracle embedded in Bio-Ledger. Monitors operator physiological state, signs verifiable work receipts on Filecoin, and provides proactive health coaching anchored to a World ID nullifier.",
+    operator_wallet: process.env.AGENT_OPERATOR_WALLET ?? "0x0000000000000000000000000000000000000000",
+    erc8004_identity: {
+      signing_scheme: "HMAC-SHA256",
+      key_fingerprint: HMAC_KEY_FINGERPRINT,
+      agent_scope: "biometric-session",
+      issued_at: new Date().toISOString(),
+    },
+    supported_tools: [
+      { name: "filecoin-upload", description: "Stores signed receipts to Filecoin warm storage via Synapse SDK" },
+      { name: "world-id-verify", description: "Validates World ID ZK proof and binds nullifier to session" },
+      { name: "hmac-sign", description: "Signs ERC-8004 receipt payload with HMAC-SHA256 companion key" },
+      { name: "gemini-chat", description: "Invokes Gemini 2.0 Flash for contextual biometric health coaching" },
+      { name: "mediapipe-vision", description: "Real-time face + posture detection via MediaPipe Face Landmarker" },
+    ],
+    task_categories: ["biometric-analysis", "work-receipt", "health-coaching", "sovereign-data"],
+    capabilities: [
+      "zk-identity",
+      "biometric-sensing",
+      "erc8004-signing",
+      "filecoin-storage",
+      "proactive-nudging",
+      "ai-chat",
+      "posture-detection",
+      "hrv-monitoring",
+      "focus-tracking",
+    ],
+    compute_constraints: {
+      max_response_time_ms: 5000,
+      max_tokens: 1000,
+      model: "gemini-2.0-flash",
+      fallback: "rule-based-deterministic",
+    },
+    bounty_targets: [
+      "Filecoin/Synapse — Protocol Labs Genesis",
+      "ERC-8004 Agentic Receipts",
+      "World ID ZK Gate",
+      "AI & Robotics ($6k)",
+      "Neurotech ($6k)",
+    ],
+  };
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", 'attachment; filename="agent.json"');
+  res.json(manifest);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   GET /api/aura/logs — agent execution log (agent_log.json)
+   Query param: nullifier (required)
+───────────────────────────────────────────────────────────── */
+router.get("/aura/logs", async (req, res) => {
+  const nullifier = typeof req.query.nullifier === "string" ? req.query.nullifier : null;
+
+  if (!nullifier) {
+    res.status(400).json({ error: "nullifier query param is required" });
+    return;
+  }
+
+  const receipts = await db
+    .select()
+    .from(workReceiptsTable)
+    .where(eq(workReceiptsTable.nullifierHash, nullifier))
+    .orderBy(desc(workReceiptsTable.createdAt));
+
+  type SessionStats = { durationSeconds?: number; apm?: number; hrv?: number; strain?: number; focusScore?: number };
+
+  const log = {
+    spec_version: "erc-8004-draft",
+    agent_id: AGENT_ID,
+    nullifier_hash: nullifier,
+    exported_at: new Date().toISOString(),
+    total_entries: receipts.length,
+    entries: receipts.map((r, idx) => {
+      const stats = (r.sessionStats ?? {}) as SessionStats;
+      const isInsight = r.receiptType === "insight";
+      const cidStatus = (r.cidStatus ?? "pending") as "pending" | "stored" | "failed";
+
+      return {
+        entry_id: `${AGENT_ID}-${r.id}`,
+        sequence: idx + 1,
+        timestamp: r.createdAt.toISOString(),
+        receipt_type: r.receiptType ?? "work",
+        decision: isInsight
+          ? `AURA generated health coaching insight and signed insight receipt`
+          : `Operator completed ${Math.round((stats.durationSeconds ?? 0) / 60)}-minute focus session; receipt signed and filed`,
+        tool_calls: isInsight
+          ? [
+              { tool: "hmac-sign", status: "ok", output: r.companionSignature.slice(0, 16) + "..." },
+            ]
+          : [
+              { tool: "hmac-sign", status: "ok", output: r.companionSignature.slice(0, 16) + "..." },
+              {
+                tool: "filecoin-upload",
+                status: cidStatus === "stored" ? "ok" : cidStatus === "failed" ? "failed" : "pending",
+                output: r.receiptCid ?? "pending",
+              },
+            ],
+        output: isInsight
+          ? { insight_text: r.insightText ?? "", biometrics: { hrv: stats.hrv, strain: stats.strain } }
+          : {
+              session_summary: `HRV ${stats.hrv ?? "?"}ms · Strain ${stats.strain ?? "?"}/21 · APM ${stats.apm ?? "?"} · Vision ${stats.focusScore ?? "?"}/100`,
+              duration_minutes: Math.round((stats.durationSeconds ?? 0) / 60),
+              physical_integrity: r.physicalIntegrity ?? false,
+              receipt_cid: r.receiptCid ?? null,
+            },
+        status: isInsight ? "success" : cidStatus === "stored" ? "success" : cidStatus === "failed" ? "partial" : "pending",
+        is_demo: r.isDemo ?? false,
+      };
+    }),
+  };
+
+  res.setHeader("Content-Type", "application/json");
+  res.setHeader("Content-Disposition", 'attachment; filename="agent_log.json"');
+  res.json(log);
+});
+
+/* ─────────────────────────────────────────────────────────────
+   POST /api/aura/chat — Gemini 2.0 Flash with rule-based fallback
+───────────────────────────────────────────────────────────── */
 router.post("/aura/chat", async (req, res) => {
   const parsed = AuraChatBody.safeParse(req.body);
   if (!parsed.success) {

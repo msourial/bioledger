@@ -15,6 +15,10 @@ import {
   Zap,
   MessageSquare,
   BookOpen,
+  Download,
+  ChevronDown,
+  ChevronUp,
+  Package,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
@@ -98,6 +102,35 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const postureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const baselineHrvRef = useRef<number | null>(null);
 
+  // Sovereign Export panel
+  const [exportOpen, setExportOpen] = useState(false);
+
+  /** Fetch a URL and trigger a browser file download */
+  const downloadJson = useCallback(async (url: string, filename: string) => {
+    try {
+      const res = await fetch(url);
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = objectUrl;
+      a.download = filename;
+      a.click();
+      URL.revokeObjectURL(objectUrl);
+    } catch (err) {
+      console.error('[Bio-Ledger] Export failed', err);
+    }
+  }, []);
+
+  const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? '';
+
+  const handleDownloadAgentJson = useCallback(() => {
+    void downloadJson(`${apiBase}/api/aura/manifest`, 'agent.json');
+  }, [downloadJson, apiBase]);
+
+  const handleDownloadLogsJson = useCallback(() => {
+    void downloadJson(`${apiBase}/api/aura/logs?nullifier=${encodeURIComponent(nullifierHash)}`, 'agent_log.json');
+  }, [downloadJson, apiBase, nullifierHash]);
+
   // Motion lock
   const handleMotionInterrupt = useCallback(() => {
     setIsSessionActive(false);
@@ -127,6 +160,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
   const createReceiptMutation = useCreateReceipt();
+
+  const handleDownloadReceiptsJson = useCallback(() => {
+    const blob = new Blob([JSON.stringify(receipts ?? [], null, 2)], { type: 'application/json' });
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = objectUrl;
+    a.download = 'receipts.json';
+    a.click();
+    URL.revokeObjectURL(objectUrl);
+  }, [receipts]);
 
   // Insight receipt signing helper (called from AuraChat via onInsightSigned)
   const signInsightReceipt = useCallback(async (insightText: string) => {
@@ -527,6 +570,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="text-yellow-500/70 ml-1">· DEMO</span>
               )}
             </div>
+            {/* AURA-AGENT-V1 Identity Badge */}
+            <motion.div
+              className="flex items-center gap-1.5 mt-2 px-2 py-0.5 border border-primary/30 bg-primary/5 w-fit"
+              animate={{ borderColor: ['rgba(0,245,255,0.3)', 'rgba(0,245,255,0.6)', 'rgba(0,245,255,0.3)'] }}
+              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            >
+              <Package className="w-2.5 h-2.5 text-primary" />
+              <span className="font-pixel text-[7px] text-primary tracking-widest">AURA-AGENT-V1</span>
+              <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+              <span className="font-pixel text-[7px] text-accent/80 tracking-wider">ERC-8004</span>
+            </motion.div>
           </div>
           <button
             onClick={onLogout}
@@ -824,7 +878,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden flex flex-col min-h-0">
           {rightTab === 'ledger' ? (
             /* Receipt Log */
             <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
@@ -892,8 +946,79 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             />
           )}
         </div>
+
+        {/* ─── SOVEREIGN EXPORT PANEL ─── */}
+        <div className="border-t border-primary/20 flex-shrink-0">
+          <button
+            onClick={() => setExportOpen((o) => !o)}
+            className="w-full flex items-center justify-between px-4 sm:px-8 py-2.5 hover:bg-primary/5 transition-colors group"
+          >
+            <div className="flex items-center gap-2">
+              <Download className="w-3 h-3 text-primary group-hover:text-primary" />
+              <span className="font-pixel text-[8px] text-primary tracking-widest">SOVEREIGN EXPORT</span>
+              <span className="font-pixel text-[6px] text-muted-foreground/50 border border-muted/30 px-1 py-px">ERC-8004</span>
+            </div>
+            {exportOpen
+              ? <ChevronUp className="w-3 h-3 text-muted-foreground/50" />
+              : <ChevronDown className="w-3 h-3 text-muted-foreground/50" />
+            }
+          </button>
+
+          <AnimatePresence>
+            {exportOpen && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.2, ease: 'easeInOut' }}
+                className="overflow-hidden"
+              >
+                <div className="px-4 sm:px-8 pb-4 pt-1 flex flex-col gap-2">
+                  <p className="font-terminal text-[10px] text-muted-foreground/60 mb-1">
+                    Download verifiable agent artifacts for hackathon submission.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                    <ExportButton
+                      label="agent.json"
+                      sublabel="ERC-8004 Manifest"
+                      onClick={handleDownloadAgentJson}
+                    />
+                    <ExportButton
+                      label="agent_log.json"
+                      sublabel="Execution Log"
+                      onClick={handleDownloadLogsJson}
+                    />
+                    <ExportButton
+                      label="receipts.json"
+                      sublabel={`${(receipts ?? []).length} receipts`}
+                      onClick={handleDownloadReceiptsJson}
+                    />
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
       </div>
     </motion.div>
+  );
+}
+
+/** Compact download button for the Sovereign Export panel */
+function ExportButton({ label, sublabel, onClick }: { label: string; sublabel: string; onClick: () => void }) {
+  return (
+    <motion.button
+      onClick={onClick}
+      whileHover={{ scale: 1.02 }}
+      whileTap={{ scale: 0.97 }}
+      className="flex flex-col items-start gap-0.5 px-3 py-2.5 border border-primary/25 bg-primary/5 hover:bg-primary/10 hover:border-primary/50 transition-all cursor-pointer text-left"
+    >
+      <div className="flex items-center gap-1.5">
+        <Download className="w-2.5 h-2.5 text-primary flex-shrink-0" />
+        <span className="font-pixel text-[7px] text-primary">{label}</span>
+      </div>
+      <span className="font-terminal text-[9px] text-muted-foreground/60 ml-4">{sublabel}</span>
+    </motion.button>
   );
 }
 
