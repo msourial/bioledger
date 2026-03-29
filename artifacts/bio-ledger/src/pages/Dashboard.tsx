@@ -43,6 +43,7 @@ interface SessionHistoryEntry {
 }
 
 const POMODORO_TIME = 25 * 60;
+const DEV_QUICK_TIME = 30; // 30-second test session (dev only)
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout }: DashboardProps) {
   const { hrv, strain } = useMockBioData();
@@ -160,6 +161,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   };
 
   const toggleTimer = () => setIsSessionActive((prev) => !prev);
+
+  // Dev-only: 30-second quick session to test receipt creation without waiting 25 min
+  const quickStart = () => {
+    setTimeLeft(DEV_QUICK_TIME);
+    setIsSessionActive(true);
+  };
 
   const formatTime = (seconds: number) => {
     const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -459,7 +466,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 </div>
               )}
               {/* Countdown before presence lock */}
-              {isSessionActive && camera.isActive && camera.faceDetected && camera.secondsUntilLock < 20 && (
+              {isSessionActive && camera.isActive && camera.faceDetected && camera.secondsUntilLock < 4 && (
                 <div className="font-pixel text-[8px] text-yellow-400 mt-0.5">
                   ⏳ {camera.secondsUntilLock}s
                 </div>
@@ -482,7 +489,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <p className="text-[8px] text-primary/60">ERC-8004 · SYNAPSE SDK</p>
               </motion.div>
             ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
                 <PixelButton
                   onClick={toggleTimer}
                   variant={isSessionActive ? 'danger' : 'primary'}
@@ -490,6 +497,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 >
                   {isSessionActive ? 'ABORT FLOW' : 'ENGAGE FLOW'}
                 </PixelButton>
+                {import.meta.env.DEV && !isSessionActive && (
+                  <button
+                    onClick={quickStart}
+                    className="w-full px-4 py-2 border border-dashed border-yellow-600/60 font-pixel text-[9px] text-yellow-500/70 hover:border-yellow-400 hover:text-yellow-400 transition-colors cursor-pointer"
+                  >
+                    ⚡ QUICK TEST (30s) — DEV ONLY
+                  </button>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -606,8 +621,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 </div>
               ))
             ) : (
-              <div className="text-center font-terminal text-muted-foreground py-8">
-                NO RECEIPTS FOUND. ENGAGE FLOW TO BEGIN.
+              <div className="flex flex-col items-center gap-3 py-8 text-center">
+                <div className="font-pixel text-[9px] text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full">
+                  NO RECEIPTS YET
+                </div>
+                <p className="font-terminal text-xs text-muted-foreground/50">
+                  Complete a focus session to mint your first<br />
+                  ERC-8004 Agentic Work Receipt on Filecoin.
+                </p>
+                {import.meta.env.DEV && (
+                  <p className="font-pixel text-[8px] text-yellow-500/50">
+                    ⚡ USE QUICK TEST (30s) BELOW TO CREATE ONE NOW
+                  </p>
+                )}
               </div>
             )}
           </div>
