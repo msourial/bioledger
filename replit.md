@@ -39,12 +39,17 @@ The primary app is **Bio-Ledger** — a Verifiable Life-Graph PWA for the PL Gen
 - `lib/db/src/schema/work-receipts.ts` — work_receipts table (Drizzle ORM)
 
 ### World ID Environment Variables
-Set these to enable the real on-chain ZK proof flow:
-- `WORLD_ID_APP_ID` — App ID from developer.worldcoin.org (format: `app_xxxxx`)
+Required to enable the real World ID ZK proof modal:
+- `WORLD_ID_APP_ID` — App ID from developer.worldcoin.org (format: `app_xxxxx`) — **primary gate**
 - `WORLD_ID_ACTION` — Action string (default: `bio-ledger-verify`)
+
+With only the above two vars set, the IDKit modal opens using an ephemeral auto-generated RP key
+(sufficient for local dev / hackathon demo). Actual ZK proof verification against the Worldcoin
+cloud requires the RP to be registered and the two additional vars below set:
 - `WORLD_ID_RP_ID` — Relying Party ID from developer.worldcoin.org (format: `rp_xxxxx`)
-- `WORLD_ID_SIGNING_KEY` — ECDSA private key hex (from RP keypair in Developer Portal)
-When absent, the lock screen runs a cosmetic ZK simulation ("DEMO MODE").
+- `WORLD_ID_SIGNING_KEY` — ECDSA P-256 private key hex (from RP keypair in Developer Portal)
+
+When `WORLD_ID_APP_ID` is absent, the lock screen runs a cosmetic ZK simulation ("DEMO MODE").
 
 ### Design Palette
 - Background: #2D1B4E (Deep Purple)
