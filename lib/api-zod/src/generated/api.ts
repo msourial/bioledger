@@ -44,6 +44,10 @@ export const ListReceiptsResponseItem = zod.object({
     .string()
     .optional()
     .describe("Filecoin CID of the stored receipt (if available)"),
+  cidStatus: zod
+    .enum(["pending", "stored", "failed"])
+    .optional()
+    .describe("Storage status of the receipt on Filecoin"),
   physicalIntegrity: zod
     .boolean()
     .optional()
@@ -69,10 +73,42 @@ export const CreateReceiptBody = zod.object({
   }),
   companionSignature: zod.string(),
   receiptCid: zod.string().optional(),
+  cidStatus: zod
+    .enum(["pending", "stored", "failed"])
+    .optional()
+    .describe("Storage status of the receipt on Filecoin"),
   physicalIntegrity: zod
     .boolean()
     .optional()
     .describe(
       "True if phone stayed stationary and camera detected a human face for the entire session",
     ),
+});
+
+/**
+ * Uploads the signed ERC-8004 receipt payload to Filecoin warm storage. Returns a real PieceCID when SYNAPSE_API_KEY is configured, or status=pending when not.
+ * @summary Upload receipt JSON to Filecoin via Synapse/web3.storage
+ */
+export const UploadToFilecoinBody = zod
+  .record(zod.string(), zod.unknown())
+  .describe("The signed ERC-8004 receipt payload to upload");
+
+export const UploadToFilecoinResponse = zod.object({
+  cid: zod
+    .string()
+    .nullable()
+    .describe(
+      "IPFS\/Filecoin CID of the uploaded receipt (null when status=pending or failed)",
+    ),
+  gateway_url: zod
+    .string()
+    .nullish()
+    .describe("Public IPFS gateway URL to resolve the receipt"),
+  status: zod
+    .enum(["stored", "pending", "failed"])
+    .describe("Upload result status"),
+  message: zod
+    .string()
+    .optional()
+    .describe("Human-readable status message (set when status is not stored)"),
 });

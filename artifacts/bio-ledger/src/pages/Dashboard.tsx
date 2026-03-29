@@ -22,7 +22,7 @@ import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
 import { cn, truncateHash } from '@/lib/utils';
-import { signWorkReceipt, storeToFilecoin } from '@/lib/companion-agent';
+import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
 
 interface DashboardProps {
@@ -39,7 +39,7 @@ interface SessionHistoryEntry {
   strain: number;
   focusScore: number;
   physicalIntegrity: boolean;
-  pieceCid?: string;
+  filecoin?: FilecoinResult;
 }
 
 const POMODORO_TIME = 25 * 60;
@@ -128,14 +128,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       camera.faceDetected;
 
     const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
-    const pieceCid = await storeToFilecoin(signedReceipt);
+    const filecoin = await storeToFilecoin(signedReceipt);
 
     const historyEntry: SessionHistoryEntry = {
       id: crypto.randomUUID(),
       completedAt: new Date(),
       ...stats,
       physicalIntegrity,
-      pieceCid,
+      filecoin,
     };
     setSessionHistory((prev) => [historyEntry, ...prev]);
 
@@ -145,7 +145,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           nullifierHash,
           sessionStats: stats,
           companionSignature: signedReceipt.companionSignature,
-          receiptCid: pieceCid,
+          receiptCid: filecoin.cid ?? undefined,
+          cidStatus: filecoin.status,
           physicalIntegrity,
         },
       },
@@ -543,10 +544,25 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                         {entry.physicalIntegrity ? '✓ INT' : '✗ INT'}
                       </span>
                     </div>
-                    {entry.pieceCid && (
-                      <div className="font-terminal text-[9px] text-muted-foreground/50 break-all">
-                        <span className="text-primary mr-1">PIECE CID:</span>
-                        {entry.pieceCid}
+                    {entry.filecoin && (
+                      <div className="font-terminal text-[9px] break-all">
+                        {entry.filecoin.cid ? (
+                          <>
+                            <span className="text-primary mr-1">PIECE CID:</span>
+                            <a
+                              href={entry.filecoin.gateway_url ?? `https://w3s.link/ipfs/${entry.filecoin.cid}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-primary underline hover:text-primary/80"
+                            >
+                              {entry.filecoin.cid.slice(0, 20)}…
+                            </a>
+                          </>
+                        ) : (
+                          <span className="text-yellow-500/70">
+                            ⏳ {entry.filecoin.status === 'failed' ? 'STORAGE FAILED' : 'STORAGE PENDING'}
+                          </span>
+                        )}
                       </div>
                     )}
                   </div>
@@ -611,10 +627,23 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                       <span className="text-accent flex-shrink-0">SIG:</span>
                       {truncateHash(receipt.companionSignature)}
                     </div>
-                    {receipt.receiptCid && (
-                      <div className="flex gap-2">
+                    {receipt.receiptCid ? (
+                      <div className="flex gap-2 items-start">
                         <span className="text-primary flex-shrink-0">PIECE CID:</span>
-                        {receipt.receiptCid}
+                        <a
+                          href={`https://w3s.link/ipfs/${receipt.receiptCid}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-primary underline hover:text-primary/80 break-all"
+                          title={receipt.receiptCid}
+                        >
+                          {receipt.receiptCid.slice(0, 24)}…
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2 items-center text-yellow-500/70">
+                        <span className="flex-shrink-0">⏳</span>
+                        {receipt.cidStatus === 'failed' ? 'STORAGE FAILED' : 'STORAGE PENDING'}
                       </div>
                     )}
                   </div>

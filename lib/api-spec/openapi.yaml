@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: receipts
     description: Work receipt operations
+  - name: filecoin
+    description: Filecoin / Synapse storage operations
 paths:
   /healthz:
     get:
@@ -72,6 +74,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /filecoin/upload:
+    post:
+      operationId: uploadToFilecoin
+      tags: [filecoin]
+      summary: Upload receipt JSON to Filecoin via Synapse/web3.storage
+      description: Uploads the signed ERC-8004 receipt payload to Filecoin warm storage. Returns a real PieceCID when SYNAPSE_API_KEY is configured, or status=pending when not.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FilecoinUploadBody"
+      responses:
+        "200":
+          description: Upload result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FilecoinUploadResult"
+        "502":
+          description: Upload failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -121,6 +148,10 @@ components:
         receiptCid:
           type: string
           description: Filecoin CID of the stored receipt (if available)
+        cidStatus:
+          type: string
+          enum: [pending, stored, failed]
+          description: Storage status of the receipt on Filecoin
         physicalIntegrity:
           type: boolean
           description: True if phone stayed stationary and camera detected a human face for the entire session
@@ -144,6 +175,10 @@ components:
           type: string
         receiptCid:
           type: string
+        cidStatus:
+          type: string
+          enum: [pending, stored, failed]
+          description: Storage status of the receipt on Filecoin
         physicalIntegrity:
           type: boolean
           description: True if phone stayed stationary and camera detected a human face for the entire session
@@ -151,6 +186,31 @@ components:
         - nullifierHash
         - sessionStats
         - companionSignature
+    FilecoinUploadBody:
+      type: object
+      description: The signed ERC-8004 receipt payload to upload
+      additionalProperties: true
+    FilecoinUploadResult:
+      type: object
+      properties:
+        cid:
+          type: string
+          nullable: true
+          description: IPFS/Filecoin CID of the uploaded receipt (null when status=pending or failed)
+        gateway_url:
+          type: string
+          nullable: true
+          description: Public IPFS gateway URL to resolve the receipt
+        status:
+          type: string
+          enum: [stored, pending, failed]
+          description: Upload result status
+        message:
+          type: string
+          description: Human-readable status message (set when status is not stored)
+      required:
+        - cid
+        - status
     ApiError:
       type: object
       properties:

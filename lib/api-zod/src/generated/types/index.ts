@@ -8,7 +8,12 @@
 
 export * from "./apiError";
 export * from "./createReceiptBody";
+export * from "./createReceiptBodyCidStatus";
+export * from "./filecoinUploadBody";
+export * from "./filecoinUploadResult";
+export * from "./filecoinUploadResultStatus";
 export * from "./healthStatus";
 export * from "./listReceiptsParams";
 export * from "./sessionStats";
 export * from "./workReceipt";
+export * from "./workReceiptCidStatus";

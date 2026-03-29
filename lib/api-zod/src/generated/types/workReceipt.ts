@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { SessionStats } from "./sessionStats";
+import type { WorkReceiptCidStatus } from "./workReceiptCidStatus";
 
 export interface WorkReceipt {
   id: number;
@@ -16,6 +17,8 @@ export interface WorkReceipt {
   companionSignature: string;
   /** Filecoin CID of the stored receipt (if available) */
   receiptCid?: string;
+  /** Storage status of the receipt on Filecoin */
+  cidStatus?: WorkReceiptCidStatus;
   /** True if phone stayed stationary and camera detected a human face for the entire session */
   physicalIntegrity?: boolean;
   createdAt: Date;

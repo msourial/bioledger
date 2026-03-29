@@ -5,6 +5,7 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { CreateReceiptBodyCidStatus } from "./createReceiptBodyCidStatus";
 import type { SessionStats } from "./sessionStats";
 
 export interface CreateReceiptBody {
@@ -12,6 +13,8 @@ export interface CreateReceiptBody {
   sessionStats: SessionStats;
   companionSignature: string;
   receiptCid?: string;
+  /** Storage status of the receipt on Filecoin */
+  cidStatus?: CreateReceiptBodyCidStatus;
   /** True if phone stayed stationary and camera detected a human face for the entire session */
   physicalIntegrity?: boolean;
 }

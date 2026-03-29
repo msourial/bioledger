@@ -37,7 +37,16 @@ export interface WorkReceiptPayload {
   pieceCid?: string;
 }
 
+export interface FilecoinResult {
+  cid: string | null;
+  gateway_url: string | null;
+  status: 'stored' | 'pending' | 'failed';
+  message?: string;
+}
+
 const AGENT_ID = 'AURA-AGENT-V1';
+
+const API = import.meta.env.VITE_API_BASE_URL ?? '';
 
 async function hmacSign(message: string): Promise<string> {
   const keyMaterial = 'bio-ledger-companion-v1-hackathon-key';
@@ -107,22 +116,38 @@ export async function signWorkReceipt(
 }
 
 /**
- * storeToFilecoin — Synapse SDK stub.
- * Commits the receipt JSON to a mock Filecoin/Synapse storage node.
- * Returns a deterministic PieceCID derived from the receipt signature.
+ * storeToFilecoin — Synapse / web3.storage upload.
+ *
+ * Calls the API server's /api/filecoin/upload endpoint which uploads the
+ * signed receipt JSON to Filecoin warm storage via the Synapse/web3.storage
+ * HTTP API. Returns a real PieceCID when SYNAPSE_API_KEY is configured on
+ * the server, or { status: "pending" } so the session is never lost.
  */
-export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<string> {
-  await new Promise((resolve) => setTimeout(resolve, 2000));
+export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<FilecoinResult> {
+  try {
+    const res = await fetch(`${API}/api/filecoin/upload`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(receipt),
+    });
 
-  const sigBytes = new TextEncoder().encode(receipt.companionSignature.slice(0, 16));
-  const hashBuf = await crypto.subtle.digest('SHA-256', sigBytes);
-  const hashHex = Array.from(new Uint8Array(hashBuf))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 38);
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({})) as { error?: string };
+      console.warn('[Bio-Ledger] Filecoin upload HTTP error:', res.status, errBody);
+      return { cid: null, gateway_url: null, status: 'failed', message: errBody.error ?? `HTTP ${res.status}` };
+    }
 
-  const pieceCid = `bafkrei${hashHex}`;
-  receipt.pieceCid = pieceCid;
-  receipt.receiptCid = pieceCid;
-  return pieceCid;
+    const data = await res.json() as FilecoinResult;
+
+    if (data.cid) {
+      receipt.pieceCid = data.cid;
+      receipt.receiptCid = data.cid;
+    }
+
+    return data;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Network error';
+    console.warn('[Bio-Ledger] Filecoin upload failed:', message);
+    return { cid: null, gateway_url: null, status: 'failed', message };
+  }
 }

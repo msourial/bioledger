@@ -51,6 +51,12 @@ cloud requires the RP to be registered and the two additional vars below set:
 
 When `WORLD_ID_APP_ID` is absent, the lock screen runs a cosmetic ZK simulation ("DEMO MODE").
 
+### Filecoin / Synapse Environment Variables
+- `SYNAPSE_API_KEY` — Primary key for Filecoin warm storage upload via web3.storage HTTP API (format: eyJ... JWT)
+- `WEB3_STORAGE_TOKEN` — Alias accepted when SYNAPSE_API_KEY is absent
+
+When either is set, `POST /api/filecoin/upload` uploads the signed ERC-8004 receipt to Filecoin and returns a real PieceCID resolvable at `https://w3s.link/ipfs/<cid>`. When absent, the endpoint returns `{ status: "pending" }` — the session is never lost, the receipt is saved with `cid_status = "pending"` and shows "STORAGE PENDING" in the Ledger pane.
+
 ### Design Palette
 - Background: #2D1B4E (Deep Purple)
 - Accent: #702963 (Magenta)

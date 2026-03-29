@@ -22,6 +22,18 @@ export interface SessionStats {
   focusScore: number;
 }
 
+/**
+ * Storage status of the receipt on Filecoin
+ */
+export type WorkReceiptCidStatus =
+  (typeof WorkReceiptCidStatus)[keyof typeof WorkReceiptCidStatus];
+
+export const WorkReceiptCidStatus = {
+  pending: "pending",
+  stored: "stored",
+  failed: "failed",
+} as const;
+
 export interface WorkReceipt {
   id: number;
   /** World ID nullifier hash identifying the user */
@@ -31,18 +43,64 @@ export interface WorkReceipt {
   companionSignature: string;
   /** Filecoin CID of the stored receipt (if available) */
   receiptCid?: string;
+  /** Storage status of the receipt on Filecoin */
+  cidStatus?: WorkReceiptCidStatus;
   /** True if phone stayed stationary and camera detected a human face for the entire session */
   physicalIntegrity?: boolean;
   createdAt: string;
 }
+
+/**
+ * Storage status of the receipt on Filecoin
+ */
+export type CreateReceiptBodyCidStatus =
+  (typeof CreateReceiptBodyCidStatus)[keyof typeof CreateReceiptBodyCidStatus];
+
+export const CreateReceiptBodyCidStatus = {
+  pending: "pending",
+  stored: "stored",
+  failed: "failed",
+} as const;
 
 export interface CreateReceiptBody {
   nullifierHash: string;
   sessionStats: SessionStats;
   companionSignature: string;
   receiptCid?: string;
+  /** Storage status of the receipt on Filecoin */
+  cidStatus?: CreateReceiptBodyCidStatus;
   /** True if phone stayed stationary and camera detected a human face for the entire session */
   physicalIntegrity?: boolean;
+}
+
+/**
+ * The signed ERC-8004 receipt payload to upload
+ */
+export interface FilecoinUploadBody {
+  [key: string]: unknown;
+}
+
+/**
+ * Upload result status
+ */
+export type FilecoinUploadResultStatus =
+  (typeof FilecoinUploadResultStatus)[keyof typeof FilecoinUploadResultStatus];
+
+export const FilecoinUploadResultStatus = {
+  stored: "stored",
+  pending: "pending",
+  failed: "failed",
+} as const;
+
+export interface FilecoinUploadResult {
+  /** IPFS/Filecoin CID of the uploaded receipt (null when status=pending or failed) */
+  cid: string | null;
+  /** Public IPFS gateway URL to resolve the receipt */
+  gateway_url?: string | null;
+  /** Upload result status */
+  status: FilecoinUploadResultStatus;
+  /** Human-readable status message (set when status is not stored) */
+  message?: string;
 }
 
 export interface ApiError {

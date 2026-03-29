@@ -8,6 +8,7 @@ export const workReceiptsTable = pgTable("work_receipts", {
   sessionStats: jsonb("session_stats").notNull(),
   companionSignature: text("companion_signature").notNull(),
   receiptCid: text("receipt_cid"),
+  cidStatus: text("cid_status").default("pending"),
   physicalIntegrity: boolean("physical_integrity"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

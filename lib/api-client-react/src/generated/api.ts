@@ -19,6 +19,8 @@ import type {
 import type {
   ApiError,
   CreateReceiptBody,
+  FilecoinUploadBody,
+  FilecoinUploadResult,
   HealthStatus,
   ListReceiptsParams,
   WorkReceipt,
@@ -289,4 +291,91 @@ export const useCreateReceipt = <
   TContext
 > => {
   return useMutation(getCreateReceiptMutationOptions(options));
+};
+
+/**
+ * Uploads the signed ERC-8004 receipt payload to Filecoin warm storage. Returns a real PieceCID when SYNAPSE_API_KEY is configured, or status=pending when not.
+ * @summary Upload receipt JSON to Filecoin via Synapse/web3.storage
+ */
+export const getUploadToFilecoinUrl = () => {
+  return `/api/filecoin/upload`;
+};
+
+export const uploadToFilecoin = async (
+  filecoinUploadBody: FilecoinUploadBody,
+  options?: RequestInit,
+): Promise<FilecoinUploadResult> => {
+  return customFetch<FilecoinUploadResult>(getUploadToFilecoinUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(filecoinUploadBody),
+  });
+};
+
+export const getUploadToFilecoinMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadToFilecoin>>,
+    TError,
+    { data: BodyType<FilecoinUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof uploadToFilecoin>>,
+  TError,
+  { data: BodyType<FilecoinUploadBody> },
+  TContext
+> => {
+  const mutationKey = ["uploadToFilecoin"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof uploadToFilecoin>>,
+    { data: BodyType<FilecoinUploadBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return uploadToFilecoin(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type UploadToFilecoinMutationResult = NonNullable<
+  Awaited<ReturnType<typeof uploadToFilecoin>>
+>;
+export type UploadToFilecoinMutationBody = BodyType<FilecoinUploadBody>;
+export type UploadToFilecoinMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Upload receipt JSON to Filecoin via Synapse/web3.storage
+ */
+export const useUploadToFilecoin = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof uploadToFilecoin>>,
+    TError,
+    { data: BodyType<FilecoinUploadBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof uploadToFilecoin>>,
+  TError,
+  { data: BodyType<FilecoinUploadBody> },
+  TContext
+> => {
+  return useMutation(getUploadToFilecoinMutationOptions(options));
 };
