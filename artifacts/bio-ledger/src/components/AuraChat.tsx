@@ -188,7 +188,12 @@ export default function AuraChat({
 
   // Auto-dispatch proactive nudge from Dashboard when it changes
   useEffect(() => {
-    if (!proactiveNudge || proactiveNudge === nudgeSentRef.current) return;
+    // When nudge clears, reset dedupe key so re-occurrence can fire again
+    if (!proactiveNudge) {
+      nudgeSentRef.current = null;
+      return;
+    }
+    if (proactiveNudge === nudgeSentRef.current) return;
     nudgeSentRef.current = proactiveNudge;
     // Small delay so the tab switch animation completes before sending
     const timer = setTimeout(() => {

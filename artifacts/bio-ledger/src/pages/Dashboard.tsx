@@ -198,13 +198,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   }, [isSessionActive, hrv]);
 
   useEffect(() => {
+    if (!isSessionActive) {
+      nudgeSentRef.current.lateNight = false;
+      return;
+    }
     const hour = new Date().getHours();
     if (hour >= 22 && strain > 12 && !nudgeSentRef.current.lateNight) {
       nudgeSentRef.current.lateNight = true;
       setProactiveNudge(`It's ${hour}:00 and my strain is ${strain}. Should I stop working?`);
       setRightTab('chat');
     }
-  }, [strain]);
+  }, [strain, isSessionActive]);
 
   // Reset integrity tracking when session starts
   useEffect(() => {
