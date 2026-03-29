@@ -26,6 +26,12 @@ function statusColor(status: StepStatus) {
   return 'border-red-600/60 text-red-400';
 }
 
+function statusGlyph(status: StepStatus) {
+  if (status === 'ok') return '✓';
+  if (status === 'partial') return '⚠';
+  return '✗';
+}
+
 function buildSteps(receipt: WorkReceipt): ChainStep[] {
   const { sessionStats, physicalIntegrity, companionSignature, receiptCid, cidStatus } = receipt;
 
@@ -45,7 +51,7 @@ function buildSteps(receipt: WorkReceipt): ChainStep[] {
       label: 'BIOMETRICS',
       sublabel: 'WHOOP · MEDIAPIPE',
       value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`,
-      detail: `Vision Score ${sessionStats.focusScore}/100 · ${physicalIntegrity ? 'Integrity ✓' : 'Integrity ✗'}`,
+      detail: `Focus Score ${sessionStats.focusScore}/100 · ${physicalIntegrity ? 'Integrity ✓' : 'Integrity ✗'}`,
       status: physicalIntegrity ? 'ok' : 'partial',
     },
     {
@@ -142,7 +148,7 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
             <div className={cn('pb-2 flex-1 min-w-0', i < steps.length - 1 && 'border-none')}>
               <div className="flex items-baseline gap-1.5 mb-0.5 flex-wrap">
                 <span className={cn('font-pixel text-[8px]', statusColor(step.status))}>
-                  {step.label}
+                  {statusGlyph(step.status)} {step.label}
                 </span>
                 <span className="font-pixel text-[7px] text-muted-foreground/50">{step.sublabel}</span>
               </div>
