@@ -87,31 +87,35 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
   const handleWorldId = async () => {
     if (phase !== 'idle') return;
+    if (worldIdConfig === null) return; // still loading — button is disabled
     setVerifyError(null);
 
     const existing = localStorage.getItem('bio_ledger_nullifier');
 
-    if (!worldIdConfig?.configured) {
+    if (!worldIdConfig.configured) {
+      // No APP_ID — safe to run the cosmetic simulation
       runSimulation(existing ?? undefined);
       return;
     }
 
+    // APP_ID is set → attempt real IDKit flow; never silently fall back to simulation
     if (!worldIdConfig.rp_context_available) {
-      setVerifyError('RP signing key not set — set WORLD_ID_RP_ID + WORLD_ID_SIGNING_KEY for full ZK proof.');
-      runSimulation(existing ?? undefined);
+      setVerifyError('RP signing key not configured. Set WORLD_ID_RP_ID + WORLD_ID_SIGNING_KEY to enable live ZK proof.');
       return;
     }
 
     try {
       const res = await fetch(`${API}/api/world-id/rp-context`);
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { hint?: string };
+        throw new Error(body.hint ?? `RP context request failed (${res.status})`);
+      }
       const ctx: RpContext = await res.json();
       setRpContext(ctx);
       setWidgetOpen(true);
     } catch (err) {
-      console.error('[World ID] Failed to fetch RP context:', err);
-      setVerifyError('Could not reach verification backend. Running in demo mode.');
-      runSimulation(existing ?? undefined);
+      console.error('[World ID] RP context error:', err);
+      setVerifyError(err instanceof Error ? err.message : 'Failed to obtain RP context from backend.');
     }
   };
 
@@ -320,10 +324,11 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 </p>
                 <PixelButton
                   onClick={handleWorldId}
-                  className="w-full flex items-center justify-center gap-3"
+                  disabled={worldIdConfig === null}
+                  className="w-full flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-wait"
                 >
                   <Lock className="w-4 h-4" />
-                  VERIFY WITH WORLD ID
+                  {worldIdConfig === null ? 'LOADING...' : 'VERIFY WITH WORLD ID'}
                 </PixelButton>
                 <div className="relative">
                   <div className="w-full h-px bg-secondary/40 my-1" />
