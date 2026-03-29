@@ -44,8 +44,8 @@ function buildSteps(receipt: WorkReceipt): ChainStep[] {
     {
       label: 'BIOMETRICS',
       sublabel: 'WHOOP · MEDIAPIPE',
-      value: `HRV ${sessionStats.hrv}ms · APM ${sessionStats.apm}`,
-      detail: `Focus ${sessionStats.focusScore}/100 · ${physicalIntegrity ? 'Integrity ✓' : 'Integrity ✗'}`,
+      value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`,
+      detail: `Vision Score ${sessionStats.focusScore}/100 · ${physicalIntegrity ? 'Integrity ✓' : 'Integrity ✗'}`,
       status: physicalIntegrity ? 'ok' : 'partial',
     },
     {

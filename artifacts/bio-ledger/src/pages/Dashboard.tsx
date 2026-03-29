@@ -35,11 +35,12 @@ interface DashboardProps {
 const POMODORO_TIME = 25 * 60;
 const DEMO_TIME = 60;
 
-// Demo tooltip phases keyed by seconds-remaining thresholds
+// Demo tooltip phases — 4-step guided narration keyed by seconds-remaining thresholds
 const DEMO_PHASES = [
-  { threshold: DEMO_TIME,     step: 1, label: 'IDENTITY', msg: 'World ID nullifier bound to session — ZK proof active' },
-  { threshold: DEMO_TIME - 20, step: 2, label: 'BIOMETRICS', msg: 'Live HRV, APM & camera metrics streaming from sensors' },
-  { threshold: DEMO_TIME - 40, step: 3, label: 'SIGNING', msg: 'AURA Agent will HMAC-sign your ERC-8004 receipt on completion' },
+  { threshold: DEMO_TIME,      step: 1, label: 'IDENTITY',   msg: 'World ID nullifier bound to session — ZK proof active' },
+  { threshold: DEMO_TIME - 18, step: 2, label: 'BIOMETRICS', msg: 'Live HRV, strain & vision score streaming from sensors' },
+  { threshold: DEMO_TIME - 36, step: 3, label: 'SIGNING',    msg: 'AURA Agent preparing ERC-8004 HMAC receipt for signing' },
+  { threshold: DEMO_TIME - 50, step: 4, label: 'STORAGE',    msg: 'Queuing Filecoin upload via Synapse SDK warm storage…' },
 ] as const;
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout }: DashboardProps) {
