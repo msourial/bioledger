@@ -11,6 +11,8 @@ export const workReceiptsTable = pgTable("work_receipts", {
   cidStatus: text("cid_status").default("pending"),
   isDemo: boolean("is_demo").default(false),
   physicalIntegrity: boolean("physical_integrity"),
+  receiptType: text("receipt_type").default("work"),
+  insightText: text("insight_text"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 

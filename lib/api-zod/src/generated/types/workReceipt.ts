@@ -7,6 +7,7 @@
  */
 import type { SessionStats } from "./sessionStats";
 import type { WorkReceiptCidStatus } from "./workReceiptCidStatus";
+import type { WorkReceiptReceiptType } from "./workReceiptReceiptType";
 
 export interface WorkReceipt {
   id: number;
@@ -23,5 +24,9 @@ export interface WorkReceipt {
   physicalIntegrity?: boolean;
   /** True when the receipt was created during a 60-second guided Demo Mode session */
   isDemo?: boolean;
+  /** Type of receipt — work (focus session) or insight (AURA AI recommendation) */
+  receiptType?: WorkReceiptReceiptType;
+  /** The AURA AI recommendation text (only present for insight receipts) */
+  insightText?: string;
   createdAt: Date;
 }

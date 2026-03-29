@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Brain } from 'lucide-react';
 import { cn, truncateHash } from '@/lib/utils';
 import { type WorkReceipt } from '@workspace/api-client-react';
 
@@ -32,7 +32,7 @@ function statusGlyph(status: StepStatus) {
   return '✗';
 }
 
-function buildSteps(receipt: WorkReceipt): ChainStep[] {
+function buildWorkSteps(receipt: WorkReceipt): ChainStep[] {
   const { sessionStats, physicalIntegrity, companionSignature, receiptCid, cidStatus } = receipt;
 
   const storageStatus: StepStatus =
@@ -72,6 +72,33 @@ function buildSteps(receipt: WorkReceipt): ChainStep[] {
   ];
 }
 
+function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
+  const { sessionStats, physicalIntegrity, companionSignature } = receipt;
+  return [
+    {
+      label: 'IDENTITY',
+      sublabel: 'WORLD ID · ZK PROOF',
+      value: truncateHash(receipt.nullifierHash),
+      detail: 'Semaphore nullifier bound',
+      status: 'ok',
+    },
+    {
+      label: 'BIOMETRICS',
+      sublabel: 'LIVE CONTEXT',
+      value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`,
+      detail: physicalIntegrity ? 'Physical Integrity ✓' : 'Physical Integrity ✗',
+      status: physicalIntegrity ? 'ok' : 'partial',
+    },
+    {
+      label: 'SIGNATURE',
+      sublabel: 'AURA INSIGHT · HMAC-SHA256',
+      value: truncateHash(companionSignature),
+      detail: 'AURA-AGENT-V1',
+      status: 'ok',
+    },
+  ];
+}
+
 interface ReceiptChainCardProps {
   receipt: WorkReceipt;
   isDemo?: boolean;
@@ -79,7 +106,8 @@ interface ReceiptChainCardProps {
 }
 
 export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }: ReceiptChainCardProps) {
-  const steps = buildSteps(receipt);
+  const isInsight = receipt.receiptType === 'insight';
+  const steps = isInsight ? buildInsightSteps(receipt) : buildWorkSteps(receipt);
   const allOk = steps.every((s) => s.status === 'ok');
   const hasFailed = steps.some((s) => s.status === 'failed');
   const overallStatus: StepStatus = hasFailed ? 'failed' : allOk ? 'ok' : 'partial';
@@ -95,14 +123,20 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
       transition={{ delay: index * 0.05 }}
       className={cn(
         'bg-card border-l-4 p-4 relative overflow-hidden',
-        overallStatus === 'ok' ? 'border-primary' :
-        overallStatus === 'partial' ? 'border-yellow-500' : 'border-red-600'
+        isInsight
+          ? 'border-accent'
+          : overallStatus === 'ok' ? 'border-primary' :
+          overallStatus === 'partial' ? 'border-yellow-500' : 'border-red-600'
       )}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          <StatusIcon status={overallStatus} />
+          {isInsight ? (
+            <Brain className="w-4 h-4 text-accent" />
+          ) : (
+            <StatusIcon status={overallStatus} />
+          )}
           <span className="font-pixel text-[9px] text-muted-foreground">{dateStr} {timeStr}</span>
         </div>
         <div className="flex items-center gap-1">
@@ -111,18 +145,31 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
               DEMO
             </span>
           )}
-          <span className={cn(
-            'font-pixel text-[7px] px-1.5 py-0.5 border',
-            overallStatus === 'ok'
-              ? 'bg-primary/10 text-primary border-primary/30'
-              : overallStatus === 'partial'
-              ? 'bg-yellow-500/10 text-yellow-400 border-yellow-600/30'
-              : 'bg-red-900/20 text-red-400 border-red-700/30'
-          )}>
-            {overallStatus === 'ok' ? '⬡ VERIFIED' : overallStatus === 'partial' ? '⬡ PARTIAL' : '⚠ ERROR'}
-          </span>
+          {isInsight ? (
+            <span className="font-pixel text-[7px] px-1.5 py-0.5 border bg-accent/10 text-accent border-accent/30">
+              ◈ AURA INSIGHT
+            </span>
+          ) : (
+            <span className={cn(
+              'font-pixel text-[7px] px-1.5 py-0.5 border',
+              overallStatus === 'ok'
+                ? 'bg-primary/10 text-primary border-primary/30'
+                : overallStatus === 'partial'
+                ? 'bg-yellow-500/10 text-yellow-400 border-yellow-600/30'
+                : 'bg-red-900/20 text-red-400 border-red-700/30'
+            )}>
+              {overallStatus === 'ok' ? '⬡ VERIFIED' : overallStatus === 'partial' ? '⬡ PARTIAL' : '⚠ ERROR'}
+            </span>
+          )}
         </div>
       </div>
+
+      {/* Insight text preview */}
+      {isInsight && receipt.insightText && (
+        <div className="mb-3 p-2 bg-accent/5 border border-accent/20 text-[10px] font-terminal text-foreground/80 leading-relaxed line-clamp-3">
+          {receipt.insightText}
+        </div>
+      )}
 
       {/* Chain steps */}
       <div className="flex flex-col">
@@ -177,11 +224,15 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
 
       {/* Score footer */}
       <div className="mt-2 pt-2 border-t border-secondary/20 flex justify-between items-center">
-        <span className="font-pixel text-[7px] text-muted-foreground/40">
-          {Math.round(receipt.sessionStats.durationSeconds / 60)}m session
-        </span>
-        <span className="font-terminal text-xs text-primary">
-          Focus <span className="font-bold">{receipt.sessionStats.focusScore}</span>/100
+        {isInsight ? (
+          <span className="font-pixel text-[7px] text-accent/50">AURA NEUROTECH INSIGHT</span>
+        ) : (
+          <span className="font-pixel text-[7px] text-muted-foreground/40">
+            {Math.round(receipt.sessionStats.durationSeconds / 60)}m session
+          </span>
+        )}
+        <span className={cn('font-terminal text-xs', isInsight ? 'text-accent' : 'text-primary')}>
+          {isInsight ? 'AI SIGNED' : <>Focus <span className="font-bold">{receipt.sessionStats.focusScore}</span>/100</>}
         </span>
       </div>
     </motion.div>

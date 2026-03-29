@@ -18,6 +18,8 @@ import type {
 
 import type {
   ApiError,
+  AuraChatRequest,
+  AuraChatResponse,
   CreateReceiptBody,
   FilecoinUploadBody,
   FilecoinUploadResult,
@@ -291,6 +293,93 @@ export const useCreateReceipt = <
   TContext
 > => {
   return useMutation(getCreateReceiptMutationOptions(options));
+};
+
+/**
+ * Sends a message to the AURA AI companion with biometric context. Returns an AI-generated response. Falls back to rule-based response when GEMINI_API_KEY is absent.
+ * @summary Chat with AURA AI companion
+ */
+export const getAuraChatUrl = () => {
+  return `/api/aura/chat`;
+};
+
+export const auraChat = async (
+  auraChatRequest: AuraChatRequest,
+  options?: RequestInit,
+): Promise<AuraChatResponse> => {
+  return customFetch<AuraChatResponse>(getAuraChatUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(auraChatRequest),
+  });
+};
+
+export const getAuraChatMutationOptions = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof auraChat>>,
+    TError,
+    { data: BodyType<AuraChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof auraChat>>,
+  TError,
+  { data: BodyType<AuraChatRequest> },
+  TContext
+> => {
+  const mutationKey = ["auraChat"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof auraChat>>,
+    { data: BodyType<AuraChatRequest> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return auraChat(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AuraChatMutationResult = NonNullable<
+  Awaited<ReturnType<typeof auraChat>>
+>;
+export type AuraChatMutationBody = BodyType<AuraChatRequest>;
+export type AuraChatMutationError = ErrorType<ApiError>;
+
+/**
+ * @summary Chat with AURA AI companion
+ */
+export const useAuraChat = <
+  TError = ErrorType<ApiError>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof auraChat>>,
+    TError,
+    { data: BodyType<AuraChatRequest> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof auraChat>>,
+  TError,
+  { data: BodyType<AuraChatRequest> },
+  TContext
+> => {
+  return useMutation(getAuraChatMutationOptions(options));
 };
 
 /**

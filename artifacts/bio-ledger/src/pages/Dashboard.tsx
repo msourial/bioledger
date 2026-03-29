@@ -13,6 +13,8 @@ import {
   CheckCircle2,
   EyeOff,
   Zap,
+  MessageSquare,
+  BookOpen,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
@@ -22,6 +24,7 @@ import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
 import ReceiptChainCard from '@/components/ReceiptChainCard';
+import AuraChat from '@/components/AuraChat';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
@@ -63,6 +66,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   // Provenance modal
   const [provenanceMetric, setProvenanceMetric] = useState<MetricKey | null>(null);
 
+  // Right pane tab
+  const [rightTab, setRightTab] = useState<'ledger' | 'chat'>('ledger');
+
+  // Proactive nudge tracking
+  const nudgeSentRef = useRef<{ posture: boolean; hrv: boolean; lateNight: boolean }>({
+    posture: false,
+    hrv: false,
+    lateNight: false,
+  });
+  const postureStartRef = useRef<number | null>(null);
+  const baselineHrvRef = useRef<number | null>(null);
+  const pendingNudgeRef = useRef<string | null>(null);
+
   // Motion lock
   const handleMotionInterrupt = useCallback(() => {
     setIsSessionActive(false);
@@ -92,6 +108,70 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
   const createReceiptMutation = useCreateReceipt();
+
+  // Insight receipt signing helper (called from AuraChat via onInsightSigned)
+  const signInsightReceipt = useCallback(async (insightText: string) => {
+    const focusScore = Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60));
+    const stats = { durationSeconds: 0, apm, hrv, strain, focusScore };
+    const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined);
+    createReceiptMutation.mutate(
+      {
+        data: {
+          nullifierHash,
+          sessionStats: stats,
+          companionSignature: signed.companionSignature,
+          isDemo: false,
+          physicalIntegrity: camera.faceDetected,
+          receiptType: 'insight',
+          insightText,
+        },
+      },
+      { onSuccess: () => refetchReceipts() }
+    );
+  }, [apm, hrv, strain, nullifierHash, camera.faceDetected, createReceiptMutation, refetchReceipts]);
+
+  // Proactive nudges — auto-switch to chat and queue a message when thresholds hit
+  useEffect(() => {
+    if (isSessionActive && camera.postureWarning) {
+      if (!postureStartRef.current) postureStartRef.current = Date.now();
+      const elapsed = (Date.now() - postureStartRef.current) / 1000;
+      if (elapsed >= 180 && !nudgeSentRef.current.posture) {
+        nudgeSentRef.current.posture = true;
+        pendingNudgeRef.current = 'Posture warning active for over 3 minutes. What should I do?';
+        setRightTab('chat');
+      }
+    } else {
+      postureStartRef.current = null;
+      nudgeSentRef.current.posture = false;
+    }
+  }, [isSessionActive, camera.postureWarning]);
+
+  useEffect(() => {
+    if (isSessionActive) {
+      if (baselineHrvRef.current === null) {
+        baselineHrvRef.current = hrv;
+      } else {
+        const drop = ((baselineHrvRef.current - hrv) / baselineHrvRef.current) * 100;
+        if (drop >= 15 && !nudgeSentRef.current.hrv) {
+          nudgeSentRef.current.hrv = true;
+          pendingNudgeRef.current = `My HRV just dropped from ${baselineHrvRef.current}ms to ${hrv}ms. Is that bad?`;
+          setRightTab('chat');
+        }
+      }
+    } else {
+      baselineHrvRef.current = null;
+      nudgeSentRef.current.hrv = false;
+    }
+  }, [isSessionActive, hrv]);
+
+  useEffect(() => {
+    const hour = new Date().getHours();
+    if (hour >= 22 && strain > 12 && !nudgeSentRef.current.lateNight) {
+      nudgeSentRef.current.lateNight = true;
+      pendingNudgeRef.current = `It's ${hour}:00 and my strain is ${strain}. Should I stop working?`;
+      setRightTab('chat');
+    }
+  }, [strain]);
 
   // Reset integrity tracking when session starts
   useEffect(() => {
@@ -644,42 +724,94 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           </AnimatePresence>
         </div>
 
-        {/* Receipt Log */}
-        <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
-          <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2 flex items-center gap-2">
-            PROOF CHAIN RECEIPTS
-            <span className="font-pixel text-[7px] text-muted-foreground/50">ERC-8004</span>
-          </h3>
-
-          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
-            {isReceiptsLoading ? (
-              <div className="text-center font-terminal text-muted-foreground py-8 animate-pulse">
-                SYNCING LEDGER...
-              </div>
-            ) : receipts && receipts.length > 0 ? (
-              [...receipts].reverse().map((receipt, i) => (
-                <ReceiptChainCard
-                  key={receipt.id}
-                  receipt={receipt}
-                  isDemo={receipt.isDemo ?? false}
-                  index={i}
-                />
-              ))
-            ) : (
-              <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <div className="font-pixel text-[9px] text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full">
-                  NO RECEIPTS YET
-                </div>
-                <p className="font-terminal text-xs text-muted-foreground/50">
-                  Complete a focus session to mint your first<br />
-                  ERC-8004 Agentic Work Receipt on Filecoin.
-                </p>
-                <p className="font-pixel text-[8px] text-primary/60 border border-primary/20 px-3 py-2">
-                  ⚡ USE DEMO MODE (60s) TO SEE THE FULL FLOW
-                </p>
-              </div>
+        {/* Tab bar: LEDGER / AURA CHAT */}
+        <div className="flex border-b-2 border-secondary/30">
+          <button
+            onClick={() => setRightTab('ledger')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2 font-pixel text-[9px] transition-colors cursor-pointer',
+              rightTab === 'ledger'
+                ? 'text-primary border-b-2 border-primary -mb-0.5 bg-primary/5'
+                : 'text-muted-foreground hover:text-foreground'
             )}
-          </div>
+          >
+            <BookOpen className="w-3 h-3" />
+            LEDGER
+            {receipts && receipts.length > 0 && (
+              <span className="font-terminal text-[8px] text-muted-foreground/60">({receipts.length})</span>
+            )}
+          </button>
+          <button
+            onClick={() => setRightTab('chat')}
+            className={cn(
+              'flex-1 flex items-center justify-center gap-1.5 py-2 font-pixel text-[9px] transition-colors cursor-pointer',
+              rightTab === 'chat'
+                ? 'text-accent border-b-2 border-accent -mb-0.5 bg-accent/5'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            <MessageSquare className="w-3 h-3" />
+            AURA CHAT
+          </button>
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-hidden flex flex-col">
+          {rightTab === 'ledger' ? (
+            /* Receipt Log */
+            <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
+              <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2 flex items-center gap-2">
+                PROOF CHAIN RECEIPTS
+                <span className="font-pixel text-[7px] text-muted-foreground/50">ERC-8004</span>
+              </h3>
+
+              <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
+                {isReceiptsLoading ? (
+                  <div className="text-center font-terminal text-muted-foreground py-8 animate-pulse">
+                    SYNCING LEDGER...
+                  </div>
+                ) : receipts && receipts.length > 0 ? (
+                  [...receipts].reverse().map((receipt, i) => (
+                    <ReceiptChainCard
+                      key={receipt.id}
+                      receipt={receipt}
+                      isDemo={receipt.isDemo ?? false}
+                      index={i}
+                    />
+                  ))
+                ) : (
+                  <div className="flex flex-col items-center gap-3 py-8 text-center">
+                    <div className="font-pixel text-[9px] text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full">
+                      NO RECEIPTS YET
+                    </div>
+                    <p className="font-terminal text-xs text-muted-foreground/50">
+                      Complete a focus session to mint your first<br />
+                      ERC-8004 Agentic Work Receipt on Filecoin.
+                    </p>
+                    <p className="font-pixel text-[8px] text-primary/60 border border-primary/20 px-3 py-2">
+                      ⚡ USE DEMO MODE (60s) TO SEE THE FULL FLOW
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            /* AURA Chat */
+            <AuraChat
+              bioContext={{
+                hrv,
+                strain,
+                apm,
+                focusScore: Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60)),
+                postureWarning: camera.postureWarning,
+                isSessionActive,
+                sessionDurationSeconds: POMODORO_TIME - timeLeft,
+                hourOfDay: new Date().getHours(),
+              }}
+              nullifierHash={nullifierHash}
+              onInsightSigned={(text) => void signInsightReceipt(text)}
+            />
+          )}
         </div>
       </div>
     </motion.div>

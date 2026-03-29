@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { CreateReceiptBodyCidStatus } from "./createReceiptBodyCidStatus";
+import type { CreateReceiptBodyReceiptType } from "./createReceiptBodyReceiptType";
 import type { SessionStats } from "./sessionStats";
 
 export interface CreateReceiptBody {
@@ -19,4 +20,8 @@ export interface CreateReceiptBody {
   physicalIntegrity?: boolean;
   /** True when the receipt was created during a 60-second guided Demo Mode session */
   isDemo?: boolean;
+  /** Type of receipt — work (focus session) or insight (AURA AI recommendation) */
+  receiptType?: CreateReceiptBodyReceiptType;
+  /** The AURA AI recommendation text (only present for insight receipts) */
+  insightText?: string;
 }
