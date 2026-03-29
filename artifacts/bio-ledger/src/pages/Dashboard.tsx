@@ -414,7 +414,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             className="absolute top-0 inset-x-0 z-50 bg-red-900/90 border-b-2 border-red-500 px-4 py-2 flex items-center justify-center gap-3"
           >
             <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
-            <span className="font-pixel text-xs text-red-300">MOTION LOCK TRIGGERED — FLOW PAUSED</span>
+            <span className="font-terminal text-sm font-bold uppercase tracking-widest text-red-300">Motion Lock — Flow Paused</span>
             <AlertTriangle className="w-4 h-4 text-red-400 animate-pulse" />
           </motion.div>
         )}
@@ -430,8 +430,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             className="absolute top-0 inset-x-0 z-50 bg-red-950/95 border-b-2 border-red-700 px-4 py-2 flex items-center justify-center gap-3"
           >
             <EyeOff className="w-4 h-4 text-red-400 animate-pulse" />
-            <span className="font-pixel text-[10px] text-red-300">
-              SOVEREIGN PRESENCE LOST — FLOW PAUSED
+            <span className="font-terminal text-sm font-bold uppercase tracking-widest text-red-300">
+              Sovereign Presence Lost — Flow Paused
             </span>
             <EyeOff className="w-4 h-4 text-red-400 animate-pulse" />
           </motion.div>
@@ -448,8 +448,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             className="absolute top-0 inset-x-0 z-50 bg-yellow-950/95 border-b-2 border-yellow-600 px-4 py-2 flex items-center justify-center gap-3"
           >
             <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
-            <span className="font-pixel text-[10px] text-yellow-300">
-              POSTURE WARNING — STRAIGHTEN UP
+            <span className="font-terminal text-sm font-bold uppercase tracking-widest text-yellow-300">
+              Posture Warning — Straighten Up
             </span>
             <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
           </motion.div>
@@ -523,7 +523,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
       {/* ═══════════════ LEFT PANE: LIVING ROOM ═══════════════ */}
       <motion.div
-        className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col"
+        className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col backdrop-blur-xl"
         style={{
           borderColor: isInterrupted || presenceLost
             ? '#ef4444'
@@ -536,7 +536,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '30'
           }`,
           background: 'rgba(5, 2, 15, 0.6)',
-          backdropFilter: 'blur(12px)',
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
         transition={{ duration: 1.5, ease: 'easeInOut' }}
@@ -553,18 +552,18 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         {/* Header */}
         <div className="relative z-10 p-4 sm:p-6 flex justify-between items-start">
           <div>
-            <h2 className="font-pixel text-sm sm:text-base mb-1">
+            <h2 className="font-terminal text-sm sm:text-base font-bold uppercase tracking-widest mb-1">
               {isDemoMode ? (
                 <motion.span
                   animate={{ opacity: [1, 0.5, 1] }}
                   transition={{ duration: 1, repeat: Infinity }}
                   className="text-primary"
                 >
-                  ⚡ DEMO MODE
+                  ⚡ Demo Mode
                 </motion.span>
-              ) : 'SOVEREIGN VAULT'}
+              ) : 'Sovereign Vault'}
             </h2>
-            <div className="flex items-center gap-2 text-[10px] font-pixel text-muted-foreground">
+            <div className="flex items-center gap-2 text-xs font-terminal text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary" />
               ID: {truncateHash(nullifierHash)}
               {bioSourceConnected && (
@@ -726,10 +725,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
       {/* ═══════════════ RIGHT PANE: LEDGER ═══════════════ */}
       <div
-        className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col"
+        className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl"
         style={{
           background: 'rgba(8, 3, 20, 0.55)',
-          backdropFilter: 'blur(16px)',
         }}
       >
 
@@ -807,7 +805,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
-                className="w-full bg-primary/20 border-2 border-primary p-4 flex flex-col items-center justify-center gap-2 text-primary font-pixel text-xs"
+                className="w-full bg-primary/20 border-2 border-primary p-4 flex flex-col items-center justify-center gap-2 text-primary font-terminal text-sm font-bold uppercase tracking-widest"
               >
                 <div className="flex items-center gap-3">
                   <HardDrive className="w-4 h-4 animate-bounce" />
@@ -832,7 +830,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 {!isSessionActive && !isDemoMode && (
                   <button
                     onClick={startDemoMode}
-                    className="w-full px-4 py-3 border-2 border-primary/60 font-pixel text-[10px] text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 border-2 border-primary/60 font-terminal text-xs font-bold uppercase tracking-wider text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Zap className="w-3 h-3" />
                     ⚡ DEMO MODE — 60s GUIDED WALKTHROUGH
@@ -911,15 +909,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ))
                 ) : (
                   <div className="flex flex-col items-center gap-3 py-8 text-center">
-                    <div className="font-pixel text-[9px] text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full">
-                      NO RECEIPTS YET
+                    <div className="font-terminal text-xs font-bold text-muted-foreground/50 border border-dashed border-secondary/30 px-4 py-4 w-full uppercase tracking-widest">
+                      No Receipts Yet
                     </div>
-                    <p className="font-terminal text-xs text-muted-foreground/50">
+                    <p className="font-terminal text-sm text-muted-foreground/50">
                       Complete a focus session to mint your first<br />
                       ERC-8004 Agentic Work Receipt on Filecoin.
                     </p>
-                    <p className="font-pixel text-[8px] text-primary/60 border border-primary/20 px-3 py-2">
-                      ⚡ USE DEMO MODE (60s) TO SEE THE FULL FLOW
+                    <p className="font-terminal text-xs text-primary/60 border border-primary/20 px-3 py-2 font-bold uppercase tracking-wider">
+                      ⚡ Use Demo Mode (60s) to see the full flow
                     </p>
                   </div>
                 )}

@@ -150,7 +150,7 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
           ) : (
             <StatusIcon status={overallStatus} />
           )}
-          <span className="font-pixel text-[9px] text-muted-foreground">{dateStr} {timeStr}</span>
+          <span className="font-terminal text-xs text-muted-foreground">{dateStr} {timeStr}</span>
         </div>
         <div className="flex items-center gap-1">
           {isDemo && (
