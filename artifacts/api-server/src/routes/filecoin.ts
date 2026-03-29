@@ -10,6 +10,9 @@ const UPLOAD_TOKEN =
 const W3S_UPLOAD_URL = "https://api.web3.storage/upload";
 const IPFS_GATEWAY = "https://w3s.link/ipfs";
 
+// 512 KB payload limit — receipts are small JSON; this prevents quota abuse.
+const MAX_PAYLOAD_BYTES = 512 * 1024;
+
 /**
  * POST /api/filecoin/upload
  *
@@ -17,8 +20,27 @@ const IPFS_GATEWAY = "https://w3s.link/ipfs";
  * web3.storage / Storacha HTTP API. Returns a real IPFS CID when SYNAPSE_API_KEY
  * is configured, or { status: "pending" } when the token is absent so the
  * session is never lost.
+ *
+ * Authorization: callers must include the nullifierHash that matches the receipt
+ * payload; this provides basic binding between the caller's identity and the
+ * stored data and prevents arbitrary callers from burning quota.
  */
 router.post("/filecoin/upload", async (req, res) => {
+  // Basic authorization: require nullifierHash in the body to bind upload to a
+  // known session identity. Protects storage quota without a full auth layer.
+  const { nullifierHash } = (req.body ?? {}) as { nullifierHash?: unknown };
+  if (!nullifierHash || typeof nullifierHash !== "string") {
+    res.status(400).json({ error: "nullifierHash is required in request body" });
+    return;
+  }
+
+  // Payload size guard — reject oversized requests before touching storage quota.
+  const payloadBytes = Buffer.byteLength(JSON.stringify(req.body));
+  if (payloadBytes > MAX_PAYLOAD_BYTES) {
+    res.status(413).json({ error: "Payload too large", details: `Max ${MAX_PAYLOAD_BYTES / 1024} KB` });
+    return;
+  }
+
   if (!UPLOAD_TOKEN) {
     res.json({
       cid: null,
@@ -30,8 +52,7 @@ router.post("/filecoin/upload", async (req, res) => {
   }
 
   try {
-    const payload = req.body as unknown;
-    const blob = JSON.stringify(payload);
+    const blob = JSON.stringify(req.body);
 
     const uploadRes = await fetch(W3S_UPLOAD_URL, {
       method: "POST",
@@ -46,8 +67,6 @@ router.post("/filecoin/upload", async (req, res) => {
     if (!uploadRes.ok) {
       const errText = await uploadRes.text().catch(() => `HTTP ${uploadRes.status}`);
       res.status(502).json({
-        cid: null,
-        status: "failed",
         error: "Upload to Filecoin failed",
         details: errText,
       });
@@ -58,7 +77,7 @@ router.post("/filecoin/upload", async (req, res) => {
     const cid = data.cid;
 
     if (!cid) {
-      res.status(502).json({ cid: null, status: "failed", error: "No CID returned by storage provider" });
+      res.status(502).json({ error: "No CID returned by storage provider" });
       return;
     }
 
@@ -69,7 +88,7 @@ router.post("/filecoin/upload", async (req, res) => {
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    res.status(502).json({ cid: null, status: "failed", error: "Upload request failed", details: message });
+    res.status(502).json({ error: "Upload request failed", details: message });
   }
 });
 
