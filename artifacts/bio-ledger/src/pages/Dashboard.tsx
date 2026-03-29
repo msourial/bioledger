@@ -479,14 +479,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                     )}
                   />
                 ))}
-                <span className="font-pixel text-[7px] text-muted-foreground/60 ml-2">
-                  STEP {currentDemoPhase.step}/{DEMO_PHASES.length}
+                <span className="font-terminal text-xs font-bold text-muted-foreground/60 ml-2">
+                  Step {currentDemoPhase.step}/{DEMO_PHASES.length}
                 </span>
               </div>
               <div className="flex items-start gap-3">
                 <Zap className="w-4 h-4 text-primary flex-shrink-0 mt-0.5 animate-pulse" />
                 <div>
-                  <span className="font-pixel text-[9px] text-primary mr-2">
+                  <span className="font-terminal text-sm font-bold text-primary mr-2">
                     ⬡ {currentDemoPhase.label}
                   </span>
                   <span className="font-terminal text-xs text-muted-foreground">
@@ -513,7 +513,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             <div className="max-w-lg mx-auto flex items-center gap-3">
               <HardDrive className="w-4 h-4 text-primary animate-bounce flex-shrink-0" />
               <div>
-                <span className="font-pixel text-[9px] text-primary mr-2">⬡ STORAGE</span>
+                <span className="font-terminal text-sm font-bold text-primary mr-2">⬡ Storage</span>
                 <span className="font-terminal text-xs text-muted-foreground">{filingPhase}</span>
               </div>
             </div>
@@ -563,7 +563,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 </motion.span>
               ) : 'Sovereign Vault'}
             </h2>
-            <div className="flex items-center gap-2 text-xs font-terminal text-muted-foreground">
+            <div className="flex items-center gap-2 text-sm font-terminal text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary" />
               ID: {truncateHash(nullifierHash)}
               {bioSourceConnected && (
@@ -744,10 +744,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-primary flex-shrink-0" />
                 {isDemoMode ? (
-                  <span className="font-terminal text-xs font-bold uppercase tracking-widest text-primary animate-pulse">DEMO SESSION</span>
+                  <span className="font-terminal text-sm font-bold uppercase tracking-widest text-primary animate-pulse">Demo Session</span>
                 ) : (
-                  <span className="font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    FOCUS TIMER
+                  <span className="font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">
+                    Focus Timer
                     {isSessionActive && motionLock.violationCount > 0 && (
                       <span className="text-red-400 ml-2">⚡ {motionLock.violationCount}</span>
                     )}
@@ -833,7 +833,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 {!isSessionActive && !isDemoMode && (
                   <button
                     onClick={startDemoMode}
-                    className="w-full px-4 py-3 border-2 border-primary/60 font-terminal text-xs font-bold uppercase tracking-wider text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                    className="w-full px-4 py-3 border-2 border-primary/60 font-terminal text-sm font-bold uppercase tracking-wider text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Zap className="w-3 h-3" />
                     ⚡ DEMO MODE — 60s GUIDED WALKTHROUGH
@@ -860,7 +860,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           <button
             onClick={() => setRightTab('ledger')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer',
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-sm font-bold uppercase tracking-widest transition-colors cursor-pointer',
               rightTab === 'ledger'
                 ? 'text-primary border-b-2 border-primary -mb-0.5 bg-primary/5'
                 : 'text-muted-foreground hover:text-foreground'
@@ -869,13 +869,13 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             <BookOpen className="w-3.5 h-3.5" />
             Ledger
             {receipts && receipts.length > 0 && (
-              <span className="font-terminal text-[10px] font-normal text-muted-foreground/60">({receipts.length})</span>
+              <span className="font-terminal text-sm font-normal text-muted-foreground/60">({receipts.length})</span>
             )}
           </button>
           <button
             onClick={() => setRightTab('chat')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer',
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-sm font-bold uppercase tracking-widest transition-colors cursor-pointer',
               rightTab === 'chat'
                 ? 'text-accent border-b-2 border-accent -mb-0.5 bg-accent/5'
                 : 'text-muted-foreground hover:text-foreground'
@@ -891,7 +891,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           {rightTab === 'ledger' ? (
             /* Receipt Log */
             <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
-              <h3 className="font-terminal text-xs font-bold uppercase tracking-widest mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2.5 flex items-center gap-2">
+              <h3 className="font-terminal text-sm font-bold uppercase tracking-widest mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2.5 flex items-center gap-2">
                 Proof Chain Receipts
                 <span className="font-pixel text-[7px] text-muted-foreground/40">ERC-8004</span>
               </h3>

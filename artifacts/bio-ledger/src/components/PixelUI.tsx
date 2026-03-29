@@ -12,27 +12,34 @@ export const PixelButton = React.forwardRef<HTMLButtonElement, PixelButtonProps>
 
     const variants = {
       primary: [
-        'bg-primary/10 text-primary border border-primary/60',
-        'hover:bg-primary/20 hover:border-primary',
+        'text-primary border border-primary/60',
+        'hover:border-primary',
         'shadow-[0_0_12px_rgba(0,245,255,0.2)] hover:shadow-[0_0_20px_rgba(0,245,255,0.4)]',
         'active:shadow-[0_0_8px_rgba(0,245,255,0.15)]',
       ].join(' '),
       secondary: [
-        'bg-accent/10 text-accent border border-accent/60',
-        'hover:bg-accent/20 hover:border-accent',
+        'text-accent border border-accent/60',
+        'hover:border-accent',
         'shadow-[0_0_12px_rgba(255,0,200,0.2)] hover:shadow-[0_0_20px_rgba(255,0,200,0.4)]',
       ].join(' '),
       danger: [
-        'bg-red-900/20 text-red-400 border border-red-600/60',
-        'hover:bg-red-900/40 hover:border-red-500',
+        'text-red-400 border border-red-600/60',
+        'hover:border-red-500',
         'shadow-[0_0_12px_rgba(239,68,68,0.2)] hover:shadow-[0_0_20px_rgba(239,68,68,0.4)]',
       ].join(' '),
+    };
+
+    const gradients: Record<string, React.CSSProperties> = {
+      primary: { background: 'linear-gradient(180deg, rgba(0,245,255,0.13) 0%, rgba(0,245,255,0.05) 100%)' },
+      secondary: { background: 'linear-gradient(180deg, rgba(255,0,200,0.13) 0%, rgba(255,0,200,0.05) 100%)' },
+      danger: { background: 'linear-gradient(180deg, rgba(239,68,68,0.16) 0%, rgba(239,68,68,0.06) 100%)' },
     };
 
     return (
       <button
         ref={ref}
         className={cn(baseClasses, variants[variant], className)}
+        style={gradients[variant]}
         {...props}
       />
     );

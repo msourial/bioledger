@@ -274,7 +274,7 @@ export default function AuraChat({
                   >
                     {msg.content}
                   </div>
-                  <span className="font-terminal text-xs text-muted-foreground/30 ml-1">
+                  <span className="font-terminal text-sm text-muted-foreground/30 ml-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -292,7 +292,7 @@ export default function AuraChat({
                   >
                     {msg.content}
                   </div>
-                  <span className="font-terminal text-xs text-muted-foreground/30 mr-1">
+                  <span className="font-terminal text-sm text-muted-foreground/30 mr-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -332,9 +332,9 @@ export default function AuraChat({
         }}
       >
         <span className="font-pixel text-[7px] text-muted-foreground/40">LIVE</span>
-        <span className="font-terminal text-xs text-primary/70">HRV {bioContext.hrv}ms</span>
-        <span className="font-terminal text-xs text-accent/60">Strain {bioContext.strain}</span>
-        <span className="font-terminal text-xs text-foreground/40">Vision {bioContext.focusScore}/100</span>
+        <span className="font-terminal text-sm text-primary/70">HRV {bioContext.hrv}ms</span>
+        <span className="font-terminal text-sm text-accent/60">Strain {bioContext.strain}</span>
+        <span className="font-terminal text-sm text-foreground/40">Vision {bioContext.focusScore}/100</span>
         {bioContext.postureWarning && (
           <span className="font-pixel text-[7px] text-yellow-400 animate-pulse">⚠ POSTURE</span>
         )}
