@@ -696,28 +696,29 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         {/* Bio-Markers with Provenance Badges */}
         <div className="relative z-10 p-4 sm:p-8 flex gap-4">
           <PixelPanel className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-muted-foreground font-pixel text-[10px]">
-                <Activity className="w-3 h-3 text-accent" />
-                HRV (ms)
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <Activity className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+                HRV
+                <span className="font-terminal text-[10px] font-normal text-muted-foreground/50 normal-case tracking-normal">ms</span>
               </div>
               <ProvBadge onClick={() => setProvenanceMetric('HRV')} />
             </div>
-            <div className="text-3xl font-terminal font-bold">
-              <AnimatedNumber value={hrv} className="text-accent text-shadow-magenta" />
+            <div className="flex items-baseline gap-1">
+              <AnimatedNumber value={hrv} className="text-4xl font-terminal font-bold text-accent text-shadow-magenta" />
             </div>
           </PixelPanel>
           <PixelPanel className="flex-1">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center gap-2 text-muted-foreground font-pixel text-[10px]">
-                <Brain className="w-3 h-3 text-accent" />
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                <Brain className="w-3.5 h-3.5 text-accent flex-shrink-0" />
                 STRAIN
               </div>
               <ProvBadge onClick={() => setProvenanceMetric('STRAIN')} />
             </div>
-            <div className="text-3xl font-terminal font-bold text-foreground">
-              <AnimatedNumber value={strain} className="text-foreground" />
-              <span className="text-xs text-muted-foreground ml-1">/21</span>
+            <div className="flex items-baseline gap-1">
+              <AnimatedNumber value={strain} className="text-4xl font-terminal font-bold text-foreground" />
+              <span className="font-terminal text-sm font-bold text-muted-foreground/60">/21</span>
             </div>
           </PixelPanel>
         </div>
@@ -733,44 +734,47 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       >
 
         {/* Timer & Stats */}
-        <div className="p-4 sm:p-8 border-b-4 border-secondary/30">
+        <div
+          className="p-4 sm:p-8 border-b-4"
+          style={{ borderColor: isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '30' }}
+        >
           <div className="flex justify-between items-end mb-4">
             <div>
-              <div className="flex items-center gap-2 mb-2 text-muted-foreground font-pixel text-[10px]">
-                <Clock className="w-4 h-4 text-primary" />
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="w-4 h-4 text-primary flex-shrink-0" />
                 {isDemoMode ? (
-                  <span className="text-primary animate-pulse">DEMO SESSION</span>
+                  <span className="font-terminal text-xs font-bold uppercase tracking-widest text-primary animate-pulse">DEMO SESSION</span>
                 ) : (
-                  <>
+                  <span className="font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">
                     FOCUS TIMER
                     {isSessionActive && motionLock.violationCount > 0 && (
-                      <span className="text-red-400 ml-1">⚡ {motionLock.violationCount}</span>
+                      <span className="text-red-400 ml-2">⚡ {motionLock.violationCount}</span>
                     )}
-                  </>
+                  </span>
                 )}
               </div>
               <div
                 className={cn(
-                  'text-6xl sm:text-8xl font-terminal font-bold transition-colors duration-500',
+                  'text-5xl sm:text-7xl font-pixel leading-none tracking-tight transition-colors duration-500',
                   isInterrupted || presenceLost
                     ? 'text-red-500'
                     : isDemoMode && isSessionActive
                     ? 'text-primary text-shadow-neon'
                     : isSessionActive
                     ? 'text-primary text-shadow-neon'
-                    : 'text-foreground'
+                    : 'text-foreground/80'
                 )}
               >
                 {formatTime(timeLeft)}
               </div>
             </div>
             <div className="text-right pb-2 flex flex-col gap-1 items-end">
-              <div className="flex items-center justify-end gap-1 mb-1 text-muted-foreground font-pixel text-[10px]">
-                <MousePointer2 className="w-3 h-3 text-primary" />
-                APM
+              <div className="flex items-center justify-end gap-1.5 mb-1">
+                <MousePointer2 className="w-3.5 h-3.5 text-primary" />
+                <span className="font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground">APM</span>
                 <ProvBadge onClick={() => setProvenanceMetric('APM')} />
               </div>
-              <AnimatedNumber value={apm} className="text-2xl sm:text-4xl font-terminal text-primary text-shadow-neon" />
+              <AnimatedNumber value={apm} className="text-3xl sm:text-4xl font-terminal font-bold text-primary text-shadow-neon" />
               {isSessionActive && (
                 <div
                   className={cn(
@@ -855,29 +859,29 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           <button
             onClick={() => setRightTab('ledger')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2 font-pixel text-[9px] transition-colors cursor-pointer',
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer',
               rightTab === 'ledger'
                 ? 'text-primary border-b-2 border-primary -mb-0.5 bg-primary/5'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <BookOpen className="w-3 h-3" />
-            LEDGER
+            <BookOpen className="w-3.5 h-3.5" />
+            Ledger
             {receipts && receipts.length > 0 && (
-              <span className="font-terminal text-[8px] text-muted-foreground/60">({receipts.length})</span>
+              <span className="font-terminal text-[10px] font-normal text-muted-foreground/60">({receipts.length})</span>
             )}
           </button>
           <button
             onClick={() => setRightTab('chat')}
             className={cn(
-              'flex-1 flex items-center justify-center gap-1.5 py-2 font-pixel text-[9px] transition-colors cursor-pointer',
+              'flex-1 flex items-center justify-center gap-1.5 py-2.5 font-terminal text-xs font-bold uppercase tracking-widest transition-colors cursor-pointer',
               rightTab === 'chat'
                 ? 'text-accent border-b-2 border-accent -mb-0.5 bg-accent/5'
                 : 'text-muted-foreground hover:text-foreground'
             )}
           >
-            <MessageSquare className="w-3 h-3" />
-            AURA CHAT
+            <MessageSquare className="w-3.5 h-3.5" />
+            AURA Chat
           </button>
         </div>
 
@@ -886,9 +890,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           {rightTab === 'ledger' ? (
             /* Receipt Log */
             <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
-              <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2 flex items-center gap-2">
-                PROOF CHAIN RECEIPTS
-                <span className="font-pixel text-[7px] text-muted-foreground/50">ERC-8004</span>
+              <h3 className="font-terminal text-xs font-bold uppercase tracking-widest mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2.5 flex items-center gap-2">
+                Proof Chain Receipts
+                <span className="font-pixel text-[7px] text-muted-foreground/40">ERC-8004</span>
               </h3>
 
               <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
