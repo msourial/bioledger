@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
 import {
   Activity,
   Brain,
@@ -13,6 +12,7 @@ import {
   Shield,
   CheckCircle2,
   EyeOff,
+  Zap,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
@@ -21,6 +21,7 @@ import { useMotionLock } from '@/hooks/use-motion-lock';
 import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
+import ReceiptChainCard from '@/components/ReceiptChainCard';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
@@ -31,19 +32,15 @@ interface DashboardProps {
   onLogout: () => void;
 }
 
-interface SessionHistoryEntry {
-  id: string;
-  completedAt: Date;
-  apm: number;
-  hrv: number;
-  strain: number;
-  focusScore: number;
-  physicalIntegrity: boolean;
-  filecoin?: FilecoinResult;
-}
-
 const POMODORO_TIME = 25 * 60;
-const DEV_QUICK_TIME = 30; // 30-second test session (dev only)
+const DEMO_TIME = 60;
+
+// Demo tooltip phases keyed by seconds-remaining thresholds
+const DEMO_PHASES = [
+  { threshold: DEMO_TIME,     step: 1, label: 'IDENTITY', msg: 'World ID nullifier bound to session — ZK proof active' },
+  { threshold: DEMO_TIME - 20, step: 2, label: 'BIOMETRICS', msg: 'Live HRV, APM & camera metrics streaming from sensors' },
+  { threshold: DEMO_TIME - 40, step: 3, label: 'SIGNING', msg: 'AURA Agent will HMAC-sign your ERC-8004 receipt on completion' },
+] as const;
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout }: DashboardProps) {
   const { hrv, strain } = useMockBioData();
@@ -52,7 +49,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const [timeLeft, setTimeLeft] = useState(POMODORO_TIME);
   const [isFiling, setIsFiling] = useState(false);
-  const [sessionHistory, setSessionHistory] = useState<SessionHistoryEntry[]>([]);
+  const [filingPhase, setFilingPhase] = useState<string | null>(null);
+
+  // Demo mode
+  const [isDemoMode, setIsDemoMode] = useState(false);
+  const isDemoRef = useRef(false);
+  const [demoPhaseIndex, setDemoPhaseIndex] = useState(0);
 
   // Track physical integrity over the session
   const physicalIntegrityRef = useRef(true);
@@ -97,13 +99,20 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     }
   }, [isSessionActive]);
 
+  // Advance demo phase tooltip based on time remaining
+  useEffect(() => {
+    if (!isDemoMode || !isSessionActive) return;
+    const idx = DEMO_PHASES.findLastIndex((p) => timeLeft <= p.threshold);
+    setDemoPhaseIndex(Math.max(0, idx));
+  }, [isDemoMode, isSessionActive, timeLeft]);
+
   // Timer countdown
   useEffect(() => {
     let interval: NodeJS.Timeout;
     if (isSessionActive && timeLeft > 0) {
       interval = setInterval(() => setTimeLeft((t) => t - 1), 1000);
     } else if (isSessionActive && timeLeft === 0) {
-      handleSessionComplete();
+      void handleSessionComplete();
     }
     return () => clearInterval(interval);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -117,10 +126,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const handleSessionComplete = async () => {
     setIsSessionActive(false);
+    setIsDemoMode(false);
     setIsFiling(true);
+    setFilingPhase('SIGNING RECEIPT...');
 
+    const isDemo = isDemoRef.current;
+    isDemoRef.current = false;
+
+    const sessionDuration = isDemo ? DEMO_TIME : POMODORO_TIME;
     const focusScore = Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60));
-    const stats = { durationSeconds: POMODORO_TIME, apm, hrv, strain, focusScore };
+    const stats = { durationSeconds: sessionDuration, apm, hrv, strain, focusScore };
 
     const physicalIntegrity =
       physicalIntegrityRef.current &&
@@ -128,16 +143,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       camera.faceDetected;
 
     const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
+
+    setFilingPhase('FILING TO FILECOIN...');
     const filecoin = await storeToFilecoin(signedReceipt);
 
-    const historyEntry: SessionHistoryEntry = {
-      id: crypto.randomUUID(),
-      completedAt: new Date(),
-      ...stats,
-      physicalIntegrity,
-      filecoin,
-    };
-    setSessionHistory((prev) => [historyEntry, ...prev]);
+    setFilingPhase(null);
 
     createReceiptMutation.mutate(
       {
@@ -147,6 +157,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           companionSignature: signedReceipt.companionSignature,
           receiptCid: filecoin.cid ?? undefined,
           cidStatus: filecoin.status,
+          isDemo,
           physicalIntegrity,
         },
       },
@@ -163,9 +174,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const toggleTimer = () => setIsSessionActive((prev) => !prev);
 
-  // Dev-only: 30-second quick session to test receipt creation without waiting 25 min
-  const quickStart = () => {
-    setTimeLeft(DEV_QUICK_TIME);
+  const startDemoMode = () => {
+    isDemoRef.current = true;
+    setIsDemoMode(true);
+    setDemoPhaseIndex(0);
+    setTimeLeft(DEMO_TIME);
+    physicalIntegrityRef.current = true;
     setIsSessionActive(true);
   };
 
@@ -178,16 +192,20 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const isInterrupted = motionLock.isInterrupted;
 
   // Companion state
-  const companionState: 'signing' | 'presence-lost' | 'posture' | 'active' | 'idle' =
+  const companionState: 'signing' | 'presence-lost' | 'posture' | 'active' | 'demo' | 'idle' =
     isFiling
       ? 'signing'
       : presenceLost
       ? 'presence-lost'
       : camera.postureWarning && isSessionActive
       ? 'posture'
+      : isDemoMode && isSessionActive
+      ? 'demo'
       : isSessionActive
       ? 'active'
       : 'idle';
+
+  const currentDemoPhase = DEMO_PHASES[demoPhaseIndex];
 
   return (
     <motion.div
@@ -245,7 +263,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
       {/* Posture Warning Banner */}
       <AnimatePresence>
-        {camera.postureWarning && isSessionActive && !presenceLost && !isInterrupted && (
+        {camera.postureWarning && isSessionActive && !presenceLost && !isInterrupted && !isDemoMode && (
           <motion.div
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
@@ -261,11 +279,76 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         )}
       </AnimatePresence>
 
+      {/* ─── DEMO MODE TOOLTIP OVERLAY ─── */}
+      <AnimatePresence>
+        {isDemoMode && isSessionActive && currentDemoPhase && (
+          <motion.div
+            key={currentDemoPhase.step}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="absolute bottom-0 inset-x-0 z-50 bg-background/95 border-t-2 border-primary/50 px-4 py-3"
+          >
+            <div className="max-w-lg mx-auto">
+              {/* Step dots */}
+              <div className="flex items-center gap-1 mb-2">
+                {DEMO_PHASES.map((p, i) => (
+                  <div
+                    key={p.step}
+                    className={cn(
+                      'h-1 rounded-full transition-all duration-500',
+                      i <= demoPhaseIndex ? 'bg-primary w-6' : 'bg-secondary/40 w-3'
+                    )}
+                  />
+                ))}
+                <span className="font-pixel text-[7px] text-muted-foreground/60 ml-2">
+                  STEP {currentDemoPhase.step}/{DEMO_PHASES.length}
+                </span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Zap className="w-4 h-4 text-primary flex-shrink-0 mt-0.5 animate-pulse" />
+                <div>
+                  <span className="font-pixel text-[9px] text-primary mr-2">
+                    ⬡ {currentDemoPhase.label}
+                  </span>
+                  <span className="font-terminal text-xs text-muted-foreground">
+                    {currentDemoPhase.msg}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Filing tooltip overlay */}
+      <AnimatePresence>
+        {isFiling && filingPhase && (
+          <motion.div
+            key={filingPhase}
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            className="absolute bottom-0 inset-x-0 z-50 bg-background/95 border-t-2 border-primary/50 px-4 py-3"
+          >
+            <div className="max-w-lg mx-auto flex items-center gap-3">
+              <HardDrive className="w-4 h-4 text-primary animate-bounce flex-shrink-0" />
+              <div>
+                <span className="font-pixel text-[9px] text-primary mr-2">⬡ STORAGE</span>
+                <span className="font-terminal text-xs text-muted-foreground">{filingPhase}</span>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ═══════════════ LEFT PANE: LIVING ROOM ═══════════════ */}
       <div
         className={cn(
           'w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-4 md:border-b-0 md:border-r-4 overflow-hidden flex flex-col transition-colors duration-300',
-          isInterrupted || presenceLost ? 'border-red-700' : camera.postureWarning ? 'border-yellow-600' : 'border-secondary'
+          isInterrupted || presenceLost ? 'border-red-700' : isDemoMode ? 'border-primary' : camera.postureWarning ? 'border-yellow-600' : 'border-secondary'
         )}
       >
         <div className="absolute inset-0 z-0">
@@ -280,7 +363,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         {/* Header */}
         <div className="relative z-10 p-4 sm:p-6 flex justify-between items-start">
           <div>
-            <h2 className="font-pixel text-sm sm:text-base mb-1">SOVEREIGN VAULT</h2>
+            <h2 className="font-pixel text-sm sm:text-base mb-1">
+              {isDemoMode ? (
+                <motion.span
+                  animate={{ opacity: [1, 0.5, 1] }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="text-primary"
+                >
+                  ⚡ DEMO MODE
+                </motion.span>
+              ) : 'SOVEREIGN VAULT'}
+            </h2>
             <div className="flex items-center gap-2 text-[10px] font-pixel text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary" />
               ID: {truncateHash(nullifierHash)}
@@ -323,8 +416,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { rotate: [0, -5, 5, -5, 0] }
                   : companionState === 'posture'
                   ? { rotate: [0, -3, 3, -2, 0], y: [0, 3, 0] }
-                  : companionState === 'active'
-                  ? { y: [0, -10, 0], x: [0, 5, 0] }
+                  : companionState === 'demo'
+                  ? { y: [0, -12, 0], x: [0, 6, -6, 0], scale: [1, 1.08, 1] }
                   : { y: [0, -10, 0], x: [0, 5, 0] }
               }
               transition={
@@ -334,6 +427,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { duration: 0.4, repeat: Infinity }
                   : companionState === 'posture'
                   ? { duration: 0.8, repeat: Infinity }
+                  : companionState === 'demo'
+                  ? { duration: 2, repeat: Infinity, ease: 'easeInOut' }
                   : { duration: 3, repeat: Infinity, ease: 'easeInOut' }
               }
               className="absolute -top-10 -right-10 w-24 h-24"
@@ -344,6 +439,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   ? { filter: 'drop-shadow(0 0 12px #ef4444) hue-rotate(300deg)' }
                   : companionState === 'posture'
                   ? { filter: 'drop-shadow(0 0 10px #facc15) sepia(0.8)' }
+                  : companionState === 'demo'
+                  ? { filter: 'drop-shadow(0 0 20px #00F5FF) drop-shadow(0 0 8px #702963)' }
                   : {}
               }
             >
@@ -360,6 +457,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-primary bg-background/90 px-2 py-0.5 border border-primary/50"
                 >
                   SIGNING...
+                </motion.div>
+              )}
+              {/* Demo badge */}
+              {companionState === 'demo' && (
+                <motion.div
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  transition={{ duration: 0.6, repeat: Infinity }}
+                  className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-primary bg-background/90 px-2 py-0.5 border border-primary/50"
+                >
+                  DEMO
                 </motion.div>
               )}
               {/* Posture warning badge */}
@@ -420,13 +527,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
         {/* Timer & Stats */}
         <div className="p-4 sm:p-8 border-b-4 border-secondary/30">
-          <div className="flex justify-between items-end mb-6">
+          <div className="flex justify-between items-end mb-4">
             <div>
               <div className="flex items-center gap-2 mb-2 text-muted-foreground font-pixel text-[10px]">
                 <Clock className="w-4 h-4 text-primary" />
-                FOCUS TIMER
-                {isSessionActive && motionLock.violationCount > 0 && (
-                  <span className="text-red-400 ml-1">⚡ {motionLock.violationCount}</span>
+                {isDemoMode ? (
+                  <span className="text-primary animate-pulse">DEMO SESSION</span>
+                ) : (
+                  <>
+                    FOCUS TIMER
+                    {isSessionActive && motionLock.violationCount > 0 && (
+                      <span className="text-red-400 ml-1">⚡ {motionLock.violationCount}</span>
+                    )}
+                  </>
                 )}
               </div>
               <div
@@ -434,6 +547,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   'text-6xl sm:text-8xl font-terminal font-bold transition-colors duration-500',
                   isInterrupted || presenceLost
                     ? 'text-red-500'
+                    : isDemoMode && isSessionActive
+                    ? 'text-primary text-shadow-neon'
                     : isSessionActive
                     ? 'text-primary text-shadow-neon'
                     : 'text-foreground'
@@ -462,11 +577,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   {motionLock.physicalIntegrity && camera.faceDetected
                     ? 'INTEGRITY OK'
                     : presenceLost
-                    ? `PRESENCE LOST`
+                    ? 'PRESENCE LOST'
                     : 'INTEGRITY LOST'}
                 </div>
               )}
-              {/* Countdown before presence lock */}
               {isSessionActive && camera.isActive && camera.faceDetected && camera.secondsUntilLock < 4 && (
                 <div className="font-pixel text-[8px] text-yellow-400 mt-0.5">
                   ⏳ {camera.secondsUntilLock}s
@@ -478,6 +592,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           <AnimatePresence mode="wait">
             {isFiling ? (
               <motion.div
+                key="filing"
                 initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0 }}
@@ -485,26 +600,43 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               >
                 <div className="flex items-center gap-3">
                   <HardDrive className="w-4 h-4 animate-bounce" />
-                  AURA AGENT SIGNING & FILING TO FILECOIN...
+                  {filingPhase ?? 'AURA AGENT SIGNING & FILING TO FILECOIN...'}
                 </div>
                 <p className="text-[8px] text-primary/60">ERC-8004 · SYNAPSE SDK</p>
               </motion.div>
             ) : (
-              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
-                <PixelButton
-                  onClick={toggleTimer}
-                  variant={isSessionActive ? 'danger' : 'primary'}
-                  className="w-full text-lg"
-                >
-                  {isSessionActive ? 'ABORT FLOW' : 'ENGAGE FLOW'}
-                </PixelButton>
-                {import.meta.env.DEV && !isSessionActive && (
-                  <button
-                    onClick={quickStart}
-                    className="w-full px-4 py-2 border border-dashed border-yellow-600/60 font-pixel text-[9px] text-yellow-500/70 hover:border-yellow-400 hover:text-yellow-400 transition-colors cursor-pointer"
+              <motion.div key="controls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
+                {/* Main session button — only shown when not in demo mode */}
+                {!isDemoMode && (
+                  <PixelButton
+                    onClick={toggleTimer}
+                    variant={isSessionActive ? 'danger' : 'primary'}
+                    className="w-full text-lg"
                   >
-                    ⚡ QUICK TEST (30s) — DEV ONLY
+                    {isSessionActive ? 'ABORT FLOW' : 'ENGAGE FLOW'}
+                  </PixelButton>
+                )}
+
+                {/* Demo mode button — always visible when idle */}
+                {!isSessionActive && !isDemoMode && (
+                  <button
+                    onClick={startDemoMode}
+                    className="w-full px-4 py-3 border-2 border-primary/60 font-pixel text-[10px] text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Zap className="w-3 h-3" />
+                    ⚡ DEMO MODE — 60s GUIDED WALKTHROUGH
                   </button>
+                )}
+
+                {/* Abort demo */}
+                {isDemoMode && isSessionActive && (
+                  <PixelButton
+                    onClick={() => { setIsSessionActive(false); setIsDemoMode(false); setTimeLeft(POMODORO_TIME); isDemoRef.current = false; }}
+                    variant="danger"
+                    className="w-full"
+                  >
+                    ABORT DEMO
+                  </PixelButton>
                 )}
               </motion.div>
             )}
@@ -513,141 +645,24 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
         {/* Receipt Log */}
         <div className="flex-1 flex flex-col p-4 sm:p-8 overflow-hidden">
-          {/* Local session history */}
-          {sessionHistory.length > 0 && (
-            <div className="mb-4">
-              <h3 className="font-pixel text-[10px] mb-2 text-accent border-b-2 border-accent/20 pb-1">
-                SESSION HISTORY (THIS VAULT)
-              </h3>
-              <div className="flex flex-col gap-1">
-                {sessionHistory.map((entry) => (
-                  <div
-                    key={entry.id}
-                    className="flex flex-col bg-accent/5 border-l-2 border-accent px-3 py-1.5 gap-1"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-terminal text-xs text-muted-foreground">
-                        {format(entry.completedAt, 'HH:mm')}
-                      </span>
-                      <span className="font-terminal text-xs">
-                        Score <NeonText>{entry.focusScore}</NeonText>
-                      </span>
-                      <span className="font-terminal text-xs text-muted-foreground">
-                        APM {entry.apm} · HRV {entry.hrv}
-                      </span>
-                      <span
-                        className={cn(
-                          'font-pixel text-[8px]',
-                          entry.physicalIntegrity ? 'text-primary' : 'text-red-400'
-                        )}
-                      >
-                        {entry.physicalIntegrity ? '✓ INT' : '✗ INT'}
-                      </span>
-                    </div>
-                    {entry.filecoin && (
-                      <div className="font-terminal text-[9px] break-all">
-                        {entry.filecoin.cid ? (
-                          <>
-                            <span className="text-primary mr-1">PIECE CID:</span>
-                            <a
-                              href={entry.filecoin.gateway_url ?? `https://w3s.link/ipfs/${entry.filecoin.cid}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-primary underline hover:text-primary/80"
-                            >
-                              {entry.filecoin.cid.slice(0, 20)}…
-                            </a>
-                          </>
-                        ) : (
-                          <span className="text-yellow-500/70">
-                            ⏳ {entry.filecoin.status === 'failed' ? 'STORAGE FAILED' : 'STORAGE PENDING'}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2">
-            AGENTIC WORK RECEIPTS (ERC-8004)
+          <h3 className="font-pixel text-xs sm:text-sm mb-4 text-muted-foreground border-b-2 border-secondary/30 pb-2 flex items-center gap-2">
+            PROOF CHAIN RECEIPTS
+            <span className="font-pixel text-[7px] text-muted-foreground/50">ERC-8004</span>
           </h3>
 
-          <div className="flex-1 overflow-y-auto pr-2 flex flex-col gap-3">
+          <div className="flex-1 overflow-y-auto pr-1 flex flex-col gap-3">
             {isReceiptsLoading ? (
               <div className="text-center font-terminal text-muted-foreground py-8 animate-pulse">
                 SYNCING LEDGER...
               </div>
             ) : receipts && receipts.length > 0 ? (
-              receipts.map((receipt) => (
-                <div
+              [...receipts].reverse().map((receipt, i) => (
+                <ReceiptChainCard
                   key={receipt.id}
-                  className="bg-card border-l-4 border-primary p-4 hover:bg-card/80 transition-colors"
-                >
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-terminal text-xs text-muted-foreground">
-                      {format(new Date(receipt.createdAt), 'MMM dd, yyyy HH:mm')}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {receipt.physicalIntegrity !== undefined && (
-                        <span
-                          className={cn(
-                            'font-pixel text-[7px] px-1.5 py-0.5 border',
-                            receipt.physicalIntegrity
-                              ? 'bg-primary/10 text-primary border-primary/30'
-                              : 'bg-red-900/20 text-red-400 border-red-700/30'
-                          )}
-                        >
-                          {receipt.physicalIntegrity ? '⬡ INTEGRITY' : '⚠ DISRUPTED'}
-                        </span>
-                      )}
-                      <span className="font-pixel text-[8px] px-2 py-1 bg-primary/10 text-primary border border-primary/30">
-                        VERIFIED
-                      </span>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 mb-3">
-                    <div className="font-terminal text-lg">
-                      Dur: <span className="text-foreground">{Math.round(receipt.sessionStats.durationSeconds / 60)}m</span>
-                    </div>
-                    <div className="font-terminal text-lg">
-                      APM: <span className="text-foreground">{receipt.sessionStats.apm}</span>
-                    </div>
-                    <div className="font-terminal text-lg">
-                      HRV: <span className="text-accent">{receipt.sessionStats.hrv}</span>
-                    </div>
-                    <div className="font-terminal text-lg">
-                      Score: <NeonText>{receipt.sessionStats.focusScore}</NeonText>
-                    </div>
-                  </div>
-                  <div className="bg-background/50 p-2 font-terminal text-[10px] sm:text-xs text-muted-foreground break-all rounded-sm border border-secondary/20 space-y-1">
-                    <div className="flex gap-2">
-                      <span className="text-accent flex-shrink-0">SIG:</span>
-                      {truncateHash(receipt.companionSignature)}
-                    </div>
-                    {receipt.receiptCid ? (
-                      <div className="flex gap-2 items-start">
-                        <span className="text-primary flex-shrink-0">PIECE CID:</span>
-                        <a
-                          href={`https://w3s.link/ipfs/${receipt.receiptCid}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-primary underline hover:text-primary/80 break-all"
-                          title={receipt.receiptCid}
-                        >
-                          {receipt.receiptCid.slice(0, 24)}…
-                        </a>
-                      </div>
-                    ) : (
-                      <div className="flex gap-2 items-center text-yellow-500/70">
-                        <span className="flex-shrink-0">⏳</span>
-                        {receipt.cidStatus === 'failed' ? 'STORAGE FAILED' : 'STORAGE PENDING'}
-                      </div>
-                    )}
-                  </div>
-                </div>
+                  receipt={receipt}
+                  isDemo={receipt.isDemo ?? false}
+                  index={i}
+                />
               ))
             ) : (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -658,11 +673,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   Complete a focus session to mint your first<br />
                   ERC-8004 Agentic Work Receipt on Filecoin.
                 </p>
-                {import.meta.env.DEV && (
-                  <p className="font-pixel text-[8px] text-yellow-500/50">
-                    ⚡ USE QUICK TEST (30s) BELOW TO CREATE ONE NOW
-                  </p>
-                )}
+                <p className="font-pixel text-[8px] text-primary/60 border border-primary/20 px-3 py-2">
+                  ⚡ USE DEMO MODE (60s) TO SEE THE FULL FLOW
+                </p>
               </div>
             )}
           </div>

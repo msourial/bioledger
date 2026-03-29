@@ -21,5 +21,7 @@ export interface WorkReceipt {
   cidStatus?: WorkReceiptCidStatus;
   /** True if phone stayed stationary and camera detected a human face for the entire session */
   physicalIntegrity?: boolean;
+  /** True when the receipt was created during a 60-second guided Demo Mode session */
+  isDemo?: boolean;
   createdAt: Date;
 }

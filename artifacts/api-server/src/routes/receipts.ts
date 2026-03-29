@@ -33,6 +33,7 @@ router.get("/receipts", async (req, res) => {
       companionSignature: r.companionSignature,
       receiptCid: r.receiptCid ?? undefined,
       cidStatus: (r.cidStatus ?? "pending") as "pending" | "stored" | "failed",
+      isDemo: r.isDemo ?? false,
       physicalIntegrity: r.physicalIntegrity ?? undefined,
       createdAt: r.createdAt.toISOString(),
     }))
@@ -46,7 +47,7 @@ router.post("/receipts", async (req, res) => {
     return;
   }
 
-  const { nullifierHash, sessionStats, companionSignature, receiptCid, cidStatus, physicalIntegrity } = body.data;
+  const { nullifierHash, sessionStats, companionSignature, receiptCid, cidStatus, isDemo, physicalIntegrity } = body.data;
 
   const [inserted] = await db
     .insert(workReceiptsTable)
@@ -56,6 +57,7 @@ router.post("/receipts", async (req, res) => {
       companionSignature,
       receiptCid: receiptCid ?? null,
       cidStatus: cidStatus ?? "pending",
+      isDemo: isDemo ?? false,
       physicalIntegrity: physicalIntegrity ?? null,
     })
     .returning();
@@ -67,6 +69,7 @@ router.post("/receipts", async (req, res) => {
     companionSignature: inserted.companionSignature,
     receiptCid: inserted.receiptCid ?? undefined,
     cidStatus: (inserted.cidStatus ?? "pending") as "pending" | "stored" | "failed",
+    isDemo: inserted.isDemo ?? false,
     physicalIntegrity: inserted.physicalIntegrity ?? undefined,
     createdAt: inserted.createdAt.toISOString(),
   });

@@ -54,6 +54,12 @@ export const ListReceiptsResponseItem = zod.object({
     .describe(
       "True if phone stayed stationary and camera detected a human face for the entire session",
     ),
+  isDemo: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the receipt was created during a 60-second guided Demo Mode session",
+    ),
   createdAt: zod.coerce.date(),
 });
 export const ListReceiptsResponse = zod.array(ListReceiptsResponseItem);
@@ -82,6 +88,12 @@ export const CreateReceiptBody = zod.object({
     .optional()
     .describe(
       "True if phone stayed stationary and camera detected a human face for the entire session",
+    ),
+  isDemo: zod
+    .boolean()
+    .optional()
+    .describe(
+      "True when the receipt was created during a 60-second guided Demo Mode session",
     ),
 });
 

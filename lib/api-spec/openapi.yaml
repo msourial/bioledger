@@ -155,6 +155,9 @@ components:
         physicalIntegrity:
           type: boolean
           description: True if phone stayed stationary and camera detected a human face for the entire session
+        isDemo:
+          type: boolean
+          description: True when the receipt was created during a 60-second guided Demo Mode session
         createdAt:
           type: string
           format: date-time
@@ -182,6 +185,9 @@ components:
         physicalIntegrity:
           type: boolean
           description: True if phone stayed stationary and camera detected a human face for the entire session
+        isDemo:
+          type: boolean
+          description: True when the receipt was created during a 60-second guided Demo Mode session
       required:
         - nullifierHash
         - sessionStats
