@@ -73,7 +73,11 @@ function buildWorkSteps(receipt: WorkReceipt): ChainStep[] {
 }
 
 function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
-  const { sessionStats, physicalIntegrity, companionSignature } = receipt;
+  const { sessionStats, physicalIntegrity, companionSignature, insightText } = receipt;
+  const summaryText = insightText
+    ? (insightText.length > 60 ? insightText.slice(0, 60) + '…' : insightText)
+    : `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`;
+
   return [
     {
       label: 'IDENTITY',
@@ -83,9 +87,9 @@ function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
       status: 'ok',
     },
     {
-      label: 'BIOMETRICS',
-      sublabel: 'LIVE CONTEXT',
-      value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`,
+      label: 'AI INSIGHT',
+      sublabel: 'AURA ANALYSIS · LIVE BIO',
+      value: summaryText,
       detail: physicalIntegrity ? 'Physical Integrity ✓' : 'Physical Integrity ✗',
       status: physicalIntegrity ? 'ok' : 'partial',
     },
