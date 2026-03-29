@@ -154,17 +154,17 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
         </div>
         <div className="flex items-center gap-1">
           {isDemo && (
-            <span className="font-pixel text-[7px] px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-600/30">
+            <span className="font-terminal text-xs font-bold px-1.5 py-0.5 bg-yellow-500/10 text-yellow-400 border border-yellow-600/30">
               DEMO
             </span>
           )}
           {isInsight ? (
-            <span className="font-pixel text-[7px] px-1.5 py-0.5 border bg-accent/10 text-accent border-accent/30">
+            <span className="font-terminal text-xs font-bold px-1.5 py-0.5 border bg-accent/10 text-accent border-accent/30">
               ◈ AURA INSIGHT
             </span>
           ) : (
             <span className={cn(
-              'font-pixel text-[7px] px-1.5 py-0.5 border',
+              'font-terminal text-xs font-bold px-1.5 py-0.5 border',
               overallStatus === 'ok'
                 ? 'bg-primary/10 text-primary border-primary/30'
                 : overallStatus === 'partial'
@@ -179,7 +179,7 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
 
       {/* Insight text preview */}
       {isInsight && receipt.insightText && (
-        <div className="mb-3 p-2 bg-accent/5 border border-accent/20 text-[10px] font-terminal text-foreground/80 leading-relaxed line-clamp-3">
+        <div className="mb-3 p-2 bg-accent/5 border border-accent/20 text-sm font-terminal text-foreground/80 leading-relaxed line-clamp-3">
           {receipt.insightText}
         </div>
       )}
@@ -207,12 +207,12 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
             {/* Step content */}
             <div className={cn('pb-2 flex-1 min-w-0', i < steps.length - 1 && 'border-none')}>
               <div className="flex items-baseline gap-1.5 mb-0.5 flex-wrap">
-                <span className={cn('font-pixel text-[8px]', statusColor(step.status))}>
+                <span className={cn('font-terminal text-sm font-bold', statusColor(step.status))}>
                   {statusGlyph(step.status)} {step.label}
                 </span>
-                <span className="font-pixel text-[7px] text-muted-foreground/50">{step.sublabel}</span>
+                <span className="font-terminal text-sm text-muted-foreground/50">{step.sublabel}</span>
               </div>
-              <div className="font-terminal text-xs text-foreground/80 break-all">
+              <div className="font-terminal text-sm text-foreground/80 break-all">
                 {step.link ? (
                   <a
                     href={step.link}
@@ -228,7 +228,7 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
                 )}
               </div>
               {step.detail && (
-                <div className="font-terminal text-[9px] text-muted-foreground/50 mt-0.5">{step.detail}</div>
+                <div className="font-terminal text-sm text-muted-foreground/50 mt-0.5">{step.detail}</div>
               )}
             </div>
           </div>
@@ -238,13 +238,13 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
       {/* Score footer */}
       <div className="mt-2 pt-2 border-t border-secondary/20 flex justify-between items-center">
         {isInsight ? (
-          <span className="font-pixel text-[7px] text-accent/50">AURA NEUROTECH INSIGHT</span>
+          <span className="font-terminal text-sm font-bold text-accent/50">AURA NEUROTECH INSIGHT</span>
         ) : (
-          <span className="font-pixel text-[7px] text-muted-foreground/40">
+          <span className="font-terminal text-sm text-muted-foreground/40">
             {Math.round(receipt.sessionStats.durationSeconds / 60)}m session
           </span>
         )}
-        <span className={cn('font-terminal text-xs', isInsight ? 'text-accent' : 'text-primary')}>
+        <span className={cn('font-terminal text-sm font-bold', isInsight ? 'text-accent' : 'text-primary')}>
           {isInsight ? 'AI SIGNED' : <>Focus <span className="font-bold">{receipt.sessionStats.focusScore}</span>/100</>}
         </span>
       </div>

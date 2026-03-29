@@ -525,13 +525,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       <motion.div
         className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col backdrop-blur-xl"
         style={{
-          borderColor: isInterrupted || presenceLost
-            ? '#ef4444'
-            : camera.postureWarning
-            ? '#facc15'
-            : isDemoMode
-            ? '#00F5FF'
-            : hrvBorderColor,
           boxShadow: `inset -1px 0 0 0 ${
             isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '30'
           }`,

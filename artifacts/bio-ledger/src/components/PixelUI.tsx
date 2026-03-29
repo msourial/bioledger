@@ -8,7 +8,7 @@ interface PixelButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement>
 export const PixelButton = React.forwardRef<HTMLButtonElement, PixelButtonProps>(
   ({ className, variant = 'primary', ...props }, ref) => {
     const baseClasses =
-      'relative px-6 py-3 font-pixel text-xs sm:text-sm uppercase transition-all duration-150 active:translate-y-0.5 outline-none focus:outline-none cursor-pointer select-none';
+      'relative px-6 py-3 font-terminal font-bold text-sm uppercase tracking-widest transition-all duration-150 active:translate-y-0.5 outline-none focus:outline-none cursor-pointer select-none';
 
     const variants = {
       primary: [
