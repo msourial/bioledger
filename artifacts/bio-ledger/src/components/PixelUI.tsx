@@ -64,7 +64,7 @@ export const PixelPanel = ({
       {title && (
         <div
           className={cn(
-            'absolute -top-3 left-4 px-2 font-pixel text-xs',
+            'absolute -top-3 left-4 px-2 font-terminal text-xs font-bold uppercase tracking-widest',
             'bg-[#0a0414]',
             variant === 'primary' ? 'text-primary' : 'text-accent'
           )}

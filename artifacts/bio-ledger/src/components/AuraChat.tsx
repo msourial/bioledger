@@ -274,7 +274,7 @@ export default function AuraChat({
                   >
                     {msg.content}
                   </div>
-                  <span className="text-[10px] text-muted-foreground/30 ml-1">
+                  <span className="font-terminal text-xs text-muted-foreground/30 ml-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -292,7 +292,7 @@ export default function AuraChat({
                   >
                     {msg.content}
                   </div>
-                  <span className="text-[10px] text-muted-foreground/30 mr-1">
+                  <span className="font-terminal text-xs text-muted-foreground/30 mr-1">
                     {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </span>
                 </div>
@@ -325,16 +325,16 @@ export default function AuraChat({
 
       {/* Live bio-context bar */}
       <div
-        className="px-4 py-2 flex items-center gap-3 flex-wrap text-[11px]"
+        className="px-4 py-2 flex items-center gap-3 flex-wrap backdrop-blur-xl"
         style={{
-          background: 'rgba(255,255,255,0.03)',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          background: 'rgba(255,255,255,0.04)',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
         }}
       >
         <span className="font-pixel text-[7px] text-muted-foreground/40">LIVE</span>
-        <span className="font-mono text-primary/70">HRV {bioContext.hrv}ms</span>
-        <span className="font-mono text-accent/60">Strain {bioContext.strain}</span>
-        <span className="font-mono text-foreground/40">Vision {bioContext.focusScore}/100</span>
+        <span className="font-terminal text-xs text-primary/70">HRV {bioContext.hrv}ms</span>
+        <span className="font-terminal text-xs text-accent/60">Strain {bioContext.strain}</span>
+        <span className="font-terminal text-xs text-foreground/40">Vision {bioContext.focusScore}/100</span>
         {bioContext.postureWarning && (
           <span className="font-pixel text-[7px] text-yellow-400 animate-pulse">⚠ POSTURE</span>
         )}

@@ -55,11 +55,11 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
     <div className="relative z-10 px-4 sm:px-8 pb-4">
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2 font-pixel text-[9px] text-muted-foreground/70">
+        <div className="flex items-center gap-2 font-terminal text-xs font-bold uppercase tracking-widest text-muted-foreground/70">
           <Scan className="w-3 h-3 text-primary/70" />
-          SOVEREIGN LENS
+          Sovereign Lens
         </div>
-        <span className={`font-pixel text-[9px] ${statusColor}`}>{statusText}</span>
+        <span className={`font-terminal text-xs font-bold uppercase ${statusColor}`}>{statusText}</span>
       </div>
 
       <div className="flex gap-4 items-stretch">
