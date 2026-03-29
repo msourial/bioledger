@@ -286,6 +286,11 @@ components:
           items:
             $ref: "#/components/schemas/AuraChatMessage"
           description: Last 10 messages in the current session
+        recentReceiptSummaries:
+          type: array
+          items:
+            type: string
+          description: Concise text summaries of the last 3 session receipts for AURA context
       required:
         - message
         - bioContext

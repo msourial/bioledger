@@ -14,7 +14,7 @@ type BioContext = {
   hourOfDay: number;
 };
 
-function buildSystemPrompt(bio: BioContext): string {
+function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): string {
   const hour = bio.hourOfDay;
   const timeLabel =
     hour < 6 ? "late night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : hour < 22 ? "evening" : "late night";
@@ -22,6 +22,10 @@ function buildSystemPrompt(bio: BioContext): string {
   const sessionStatus = bio.isSessionActive
     ? `Active session — ${Math.round(bio.sessionDurationSeconds / 60)} minutes elapsed`
     : "No active session";
+
+  const recentHistory = recentReceiptSummaries && recentReceiptSummaries.length > 0
+    ? `\nRECENT SESSION HISTORY (last ${recentReceiptSummaries.length} receipts):\n${recentReceiptSummaries.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n`
+    : "";
 
   return `You are AURA — Autonomous Unified Response Agent, a sovereign biometric oracle embedded in Bio-Ledger, a verifiable life-graph application built on Filecoin, World ID, and ERC-8004.
 
@@ -34,7 +38,7 @@ CURRENT BIOMETRIC STATE (${timeLabel}):
 - APM: ${bio.apm} actions/minute
 - Posture: ${bio.postureWarning ? "COMPROMISED — forward lean detected" : "OK"}
 - ${sessionStatus}
-
+${recentHistory}
 INTERPRETATION THRESHOLDS:
 - HRV <55ms: high stress/fatigue
 - HRV >75ms: good recovery
@@ -81,7 +85,7 @@ router.post("/aura/chat", async (req, res) => {
     return;
   }
 
-  const { message, bioContext, history } = parsed.data;
+  const { message, bioContext, history, recentReceiptSummaries } = parsed.data;
   const apiKey = process.env.GEMINI_API_KEY;
 
   if (!apiKey) {
@@ -96,7 +100,7 @@ router.post("/aura/chat", async (req, res) => {
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
     const chat = model.startChat({
-      systemInstruction: buildSystemPrompt(bioContext as BioContext),
+      systemInstruction: buildSystemPrompt(bioContext as BioContext, recentReceiptSummaries ?? []),
       history: (history ?? []).map((m: { role: "user" | "assistant"; content: string }) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],

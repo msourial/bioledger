@@ -148,6 +148,12 @@ export const AuraChatBody = zod.object({
     )
     .optional()
     .describe("Last 10 messages in the current session"),
+  recentReceiptSummaries: zod
+    .array(zod.string())
+    .optional()
+    .describe(
+      "Concise text summaries of the last 3 session receipts for AURA context",
+    ),
 });
 
 export const AuraChatResponse = zod.object({

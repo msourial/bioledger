@@ -82,7 +82,8 @@ export async function signWorkReceipt(
   nullifierHash: string,
   stats: SessionStats,
   prevStrain = 0,
-  vision?: VisionMetrics
+  vision?: VisionMetrics,
+  receiptType: 'sustainable-flow-session' | 'aura-insight' = 'sustainable-flow-session'
 ): Promise<WorkReceiptPayload> {
   const timestamp = new Date().toISOString();
 
@@ -101,12 +102,12 @@ export async function signWorkReceipt(
     head_stability: vision?.headStability ?? 100,
   };
 
-  const payload = JSON.stringify({ nullifierHash, erc8004, timestamp });
+  const payload = JSON.stringify({ nullifierHash, receiptType, erc8004, timestamp });
   const companionSignature = await hmacSign(payload);
 
   return {
     specVersion: 'erc-8004-draft',
-    receiptType: 'sustainable-flow-session',
+    receiptType,
     timestamp,
     nullifierHash,
     sessionStats: stats,

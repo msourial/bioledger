@@ -15,6 +15,16 @@ export interface AuraBioContext {
   hourOfDay: number;
 }
 
+export interface ReceiptSummaryItem {
+  receiptType: string;
+  hrv: number;
+  strain: number;
+  apm: number;
+  durationSeconds: number;
+  createdAt: string;
+  insightText?: string;
+}
+
 interface Message {
   role: 'user' | 'assistant';
   content: string;
@@ -26,6 +36,11 @@ interface AuraChatProps {
   bioContext: AuraBioContext;
   nullifierHash: string;
   onInsightSigned?: (text: string) => void;
+  /** A proactive nudge queued by Dashboard — auto-sent once then cleared */
+  proactiveNudge?: string | null;
+  onNudgeClear?: () => void;
+  /** Last 3 receipts for AURA context */
+  recentReceipts?: ReceiptSummaryItem[];
 }
 
 declare global {
@@ -63,7 +78,22 @@ interface SpeechRecognitionErrorEvent extends Event {
   error: string;
 }
 
-export default function AuraChat({ bioContext, onInsightSigned }: AuraChatProps) {
+function formatReceiptSummary(r: ReceiptSummaryItem): string {
+  const mins = Math.round(r.durationSeconds / 60);
+  const date = new Date(r.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (r.receiptType === 'insight' && r.insightText) {
+    return `[${date}] AURA Insight: "${r.insightText.slice(0, 80)}${r.insightText.length > 80 ? '...' : ''}"`;
+  }
+  return `[${date}] Work session ${mins}min — HRV ${r.hrv}ms, Strain ${r.strain}/21, APM ${r.apm}`;
+}
+
+export default function AuraChat({
+  bioContext,
+  onInsightSigned,
+  proactiveNudge,
+  onNudgeClear,
+  recentReceipts = [],
+}: AuraChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -81,6 +111,7 @@ export default function AuraChat({ bioContext, onInsightSigned }: AuraChatProps)
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const nudgeSentRef = useRef<string | null>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -117,8 +148,17 @@ export default function AuraChat({ bioContext, onInsightSigned }: AuraChatProps)
         .slice(-9)
         .map((m) => ({ role: m.role, content: m.content }));
 
+      const summaries = recentReceipts
+        .slice(-3)
+        .map(formatReceiptSummary);
+
       try {
-        const req: AuraChatRequest = { message: text.trim(), bioContext, history: historyForApi };
+        const req: AuraChatRequest = {
+          message: text.trim(),
+          bioContext,
+          history: historyForApi,
+          recentReceiptSummaries: summaries.length > 0 ? summaries : undefined,
+        };
         const result = await auraChat(req);
         const auraMsg: Message = {
           role: 'assistant',
@@ -143,8 +183,22 @@ export default function AuraChat({ bioContext, onInsightSigned }: AuraChatProps)
         setIsLoading(false);
       }
     },
-    [bioContext, isLoading, messages, onInsightSigned, speakText]
+    [bioContext, isLoading, messages, onInsightSigned, recentReceipts, speakText]
   );
+
+  // Auto-dispatch proactive nudge from Dashboard when it changes
+  useEffect(() => {
+    if (!proactiveNudge || proactiveNudge === nudgeSentRef.current) return;
+    nudgeSentRef.current = proactiveNudge;
+    // Small delay so the tab switch animation completes before sending
+    const timer = setTimeout(() => {
+      void sendMessage(proactiveNudge);
+      onNudgeClear?.();
+    }, 400);
+    return () => clearTimeout(timer);
+    // sendMessage changes identity when messages/bioContext change; use a stable callback
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [proactiveNudge]);
 
   const toggleListening = useCallback(() => {
     if (!speechSupported) return;
@@ -281,6 +335,9 @@ export default function AuraChat({ bioContext, onInsightSigned }: AuraChatProps)
         )}
         {bioContext.isSessionActive && (
           <span className="font-pixel text-[7px] text-primary animate-pulse">● ACTIVE</span>
+        )}
+        {recentReceipts.length > 0 && (
+          <span className="font-pixel text-[7px] text-muted-foreground/40">{recentReceipts.length} RECEIPTS</span>
         )}
       </div>
 

@@ -14,4 +14,6 @@ export interface AuraChatRequest {
   bioContext: AuraBioContext;
   /** Last 10 messages in the current session */
   history?: AuraChatMessage[];
+  /** Concise text summaries of the last 3 session receipts for AURA context */
+  recentReceiptSummaries?: string[];
 }

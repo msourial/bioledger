@@ -88,14 +88,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const [rightTab, setRightTab] = useState<'ledger' | 'chat'>('ledger');
 
   // Proactive nudge tracking
+  const [proactiveNudge, setProactiveNudge] = useState<string | null>(null);
   const nudgeSentRef = useRef<{ posture: boolean; hrv: boolean; lateNight: boolean }>({
     posture: false,
     hrv: false,
     lateNight: false,
   });
-  const postureStartRef = useRef<number | null>(null);
+  const postureElapsedRef = useRef<number>(0);
+  const postureIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const baselineHrvRef = useRef<number | null>(null);
-  const pendingNudgeRef = useRef<string | null>(null);
 
   // Motion lock
   const handleMotionInterrupt = useCallback(() => {
@@ -131,7 +132,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const signInsightReceipt = useCallback(async (insightText: string) => {
     const focusScore = Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60));
     const stats = { durationSeconds: 0, apm, hrv, strain, focusScore };
-    const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined);
+    const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined, 'aura-insight');
     createReceiptMutation.mutate(
       {
         data: {
@@ -148,20 +149,34 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     );
   }, [apm, hrv, strain, nullifierHash, camera.faceDetected, createReceiptMutation, refetchReceipts]);
 
-  // Proactive nudges — auto-switch to chat and queue a message when thresholds hit
+  // Proactive nudges — posture timer: use setInterval so elapsed time actually advances
   useEffect(() => {
     if (isSessionActive && camera.postureWarning) {
-      if (!postureStartRef.current) postureStartRef.current = Date.now();
-      const elapsed = (Date.now() - postureStartRef.current) / 1000;
-      if (elapsed >= 180 && !nudgeSentRef.current.posture) {
-        nudgeSentRef.current.posture = true;
-        pendingNudgeRef.current = 'Posture warning active for over 3 minutes. What should I do?';
-        setRightTab('chat');
+      if (!postureIntervalRef.current) {
+        postureElapsedRef.current = 0;
+        postureIntervalRef.current = setInterval(() => {
+          postureElapsedRef.current += 1;
+          if (postureElapsedRef.current >= 180 && !nudgeSentRef.current.posture) {
+            nudgeSentRef.current.posture = true;
+            setProactiveNudge('Posture warning active for over 3 minutes. What should I do?');
+            setRightTab('chat');
+          }
+        }, 1000);
       }
     } else {
-      postureStartRef.current = null;
+      if (postureIntervalRef.current) {
+        clearInterval(postureIntervalRef.current);
+        postureIntervalRef.current = null;
+      }
+      postureElapsedRef.current = 0;
       nudgeSentRef.current.posture = false;
     }
+    return () => {
+      if (postureIntervalRef.current) {
+        clearInterval(postureIntervalRef.current);
+        postureIntervalRef.current = null;
+      }
+    };
   }, [isSessionActive, camera.postureWarning]);
 
   useEffect(() => {
@@ -172,7 +187,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         const drop = ((baselineHrvRef.current - hrv) / baselineHrvRef.current) * 100;
         if (drop >= 15 && !nudgeSentRef.current.hrv) {
           nudgeSentRef.current.hrv = true;
-          pendingNudgeRef.current = `My HRV just dropped from ${baselineHrvRef.current}ms to ${hrv}ms. Is that bad?`;
+          setProactiveNudge(`My HRV just dropped from ${baselineHrvRef.current}ms to ${hrv}ms. Is that bad?`);
           setRightTab('chat');
         }
       }
@@ -186,7 +201,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     const hour = new Date().getHours();
     if (hour >= 22 && strain > 12 && !nudgeSentRef.current.lateNight) {
       nudgeSentRef.current.lateNight = true;
-      pendingNudgeRef.current = `It's ${hour}:00 and my strain is ${strain}. Should I stop working?`;
+      setProactiveNudge(`It's ${hour}:00 and my strain is ${strain}. Should I stop working?`);
       setRightTab('chat');
     }
   }, [strain]);
@@ -859,6 +874,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               }}
               nullifierHash={nullifierHash}
               onInsightSigned={(text) => void signInsightReceipt(text)}
+              proactiveNudge={proactiveNudge}
+              onNudgeClear={() => setProactiveNudge(null)}
+              recentReceipts={(receipts ?? []).slice(-3).map((r) => ({
+                receiptType: r.receiptType ?? 'work',
+                hrv: (r.sessionStats as { hrv?: number }).hrv ?? 0,
+                strain: (r.sessionStats as { strain?: number }).strain ?? 0,
+                apm: (r.sessionStats as { apm?: number }).apm ?? 0,
+                durationSeconds: (r.sessionStats as { durationSeconds?: number }).durationSeconds ?? 0,
+                createdAt: r.createdAt,
+                insightText: r.insightText,
+              }))}
             />
           )}
         </div>
