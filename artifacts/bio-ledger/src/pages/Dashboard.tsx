@@ -109,6 +109,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const downloadJson = useCallback(async (url: string, filename: string) => {
     try {
       const res = await fetch(url);
+      if (!res.ok) {
+        console.error('[Bio-Ledger] Export failed — server returned', res.status);
+        return;
+      }
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
       const a = document.createElement('a');
