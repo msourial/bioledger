@@ -122,12 +122,21 @@ export default function ReceiptChainCard({ receipt, isDemo = false, index = 0 }:
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.05 }}
       className={cn(
-        'bg-card border-l-4 p-4 relative overflow-hidden',
+        'glass-panel rounded-sm border-l-4 p-4 relative overflow-hidden',
         isInsight
           ? 'border-accent'
           : overallStatus === 'ok' ? 'border-primary' :
           overallStatus === 'partial' ? 'border-yellow-500' : 'border-red-600'
       )}
+      style={{
+        boxShadow: isInsight
+          ? '0 0 12px rgba(255,0,200,0.08)'
+          : overallStatus === 'ok'
+          ? '0 0 12px rgba(0,245,255,0.08)'
+          : overallStatus === 'partial'
+          ? '0 0 10px rgba(250,204,21,0.08)'
+          : '0 0 10px rgba(239,68,68,0.08)',
+      }}
     >
       {/* Header */}
       <div className="flex items-start justify-between mb-3">

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
@@ -16,20 +16,20 @@
   --color-border: hsl(var(--border));
 
   --font-pixel: 'Press Start 2P', cursive;
-  --font-terminal: 'VT323', monospace;
+  --font-terminal: 'JetBrains Mono', monospace;
 }
 
 :root {
-  /* Deep Purple #2D1B4E */
-  --background: 261 48% 20%;
-  /* Darker Purple for cards/panes #1A0B2E */
-  --card: 266 61% 11%;
+  /* Deep near-black — midnight vault */
+  --background: 240 35% 4%;
+  /* Slightly lighter card surface */
+  --card: 252 45% 8%;
   /* Light text */
-  --foreground: 260 20% 90%;
+  --foreground: 220 20% 92%;
   
   /* Neon Teal #00F5FF */
   --primary: 182 100% 50%;
-  --primary-foreground: 266 61% 11%;
+  --primary-foreground: 240 35% 4%;
   
   /* Magenta #702963 */
   --secondary: 311 46% 30%;
@@ -40,20 +40,19 @@
   --accent-foreground: 0 0% 100%;
 
   /* Muted */
-  --muted: 261 40% 30%;
-  --muted-foreground: 260 20% 70%;
+  --muted: 245 30% 18%;
+  --muted-foreground: 230 20% 65%;
   
-  --border: 311 46% 30%;
+  --border: 311 46% 25%;
 }
 
 @layer base {
   body {
-    @apply bg-background text-foreground font-terminal antialiased;
-    background-image: 
-      linear-gradient(rgba(0, 245, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(0, 245, 255, 0.03) 1px, transparent 1px);
-    background-size: 4px 4px;
-    background-position: center center;
+    @apply bg-background text-foreground antialiased;
+    background: linear-gradient(135deg, #050505 0%, #0a0414 40%, #1A0B2E 100%);
+    background-attachment: fixed;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -61,66 +60,105 @@
   }
 }
 
-@layer utilities {
-  .text-shadow-neon {
-    text-shadow: 0 0 5px hsl(var(--primary) / 0.8), 0 0 10px hsl(var(--primary) / 0.5);
-  }
-  
-  .text-shadow-magenta {
-    text-shadow: 0 0 5px hsl(var(--accent) / 0.8), 0 0 10px hsl(var(--accent) / 0.5);
-  }
-
-  .scanlines {
-    position: relative;
-  }
-  
-  .scanlines::before {
-    content: " ";
-    display: block;
-    position: absolute;
-    top: 0;
-    left: 0;
-    bottom: 0;
-    right: 0;
-    background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-    z-index: 50;
-    background-size: 100% 4px, 3px 100%;
-    pointer-events: none;
-  }
-
-  .pixel-borders {
-    box-shadow: 
-      -4px 0 0 0 hsl(var(--primary)),
-      4px 0 0 0 hsl(var(--primary)),
-      0 -4px 0 0 hsl(var(--primary)),
-      0 4px 0 0 hsl(var(--primary));
-    margin: 4px;
-  }
-
-  .pixel-borders-secondary {
-    box-shadow: 
-      -4px 0 0 0 hsl(var(--secondary)),
-      4px 0 0 0 hsl(var(--secondary)),
-      0 -4px 0 0 hsl(var(--secondary)),
-      0 4px 0 0 hsl(var(--secondary));
-    margin: 4px;
-  }
+/* ──────────────────────────────────────────────────────────
+   Scanline overlay — 2% opacity, sovereign OS feel
+────────────────────────────────────────────────────────── */
+.scanlines-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.02) 2px,
+    rgba(0, 0, 0, 0.02) 4px
+  );
 }
 
-/* Scrollbar styling for that retro feel */
+/* ──────────────────────────────────────────────────────────
+   Glass panel utility
+────────────────────────────────────────────────────────── */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-panel-strong {
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(32px);
+  -webkit-backdrop-filter: blur(32px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Neon glow utilities
+────────────────────────────────────────────────────────── */
+.text-shadow-neon {
+  text-shadow: 0 0 8px rgba(0, 245, 255, 0.9), 0 0 20px rgba(0, 245, 255, 0.5);
+}
+
+.text-shadow-magenta {
+  text-shadow: 0 0 8px rgba(255, 0, 200, 0.9), 0 0 20px rgba(255, 0, 200, 0.5);
+}
+
+.glow-cyan {
+  box-shadow: 0 0 12px rgba(0, 245, 255, 0.25), 0 0 24px rgba(0, 245, 255, 0.1);
+}
+
+.glow-magenta {
+  box-shadow: 0 0 12px rgba(255, 0, 200, 0.25), 0 0 24px rgba(255, 0, 200, 0.1);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Rotating scan ring for camera HUD
+────────────────────────────────────────────────────────── */
+@keyframes scan-ring {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+.scan-ring {
+  animation: scan-ring 3s linear infinite;
+}
+
+.scan-ring-slow {
+  animation: scan-ring 6s linear infinite;
+  animation-direction: reverse;
+}
+
+/* ──────────────────────────────────────────────────────────
+   Scrollbar — glass themed
+────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 12px;
+  width: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: hsl(var(--card));
-  border-left: 2px solid hsl(var(--secondary));
+  background: rgba(255, 255, 255, 0.03);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--primary));
+  background: rgba(0, 245, 255, 0.3);
+  border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--accent));
+  background: rgba(0, 245, 255, 0.6);
+}
+
+/* ──────────────────────────────────────────────────────────
+   Neon pulse border animation (HRV-reactive done in JS,
+   this is the base shimmer for static use)
+────────────────────────────────────────────────────────── */
+@keyframes neon-border-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+.neon-border-pulse {
+  animation: neon-border-pulse 2s ease-in-out infinite;
 }

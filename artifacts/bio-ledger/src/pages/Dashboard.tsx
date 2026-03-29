@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useSpring, useTransform } from 'framer-motion';
 import {
   Activity,
   Brain,
@@ -45,6 +45,24 @@ const DEMO_PHASES = [
   { threshold: DEMO_TIME - 36, step: 3, label: 'SIGNING',    msg: 'AURA Agent preparing ERC-8004 HMAC receipt for signing' },
   { threshold: DEMO_TIME - 50, step: 4, label: 'STORAGE',    msg: 'Queuing Filecoin upload via Synapse SDK warm storage…' },
 ] as const;
+
+/** Lerp HRV value → neon-cyan (#00F5FF) at ≥70ms, magenta (#FF00CC) at <55ms */
+function getHrvBorderColor(hrv: number): string {
+  if (hrv >= 70) return '#00F5FF';
+  if (hrv <= 55) return '#FF00CC';
+  const t = (hrv - 55) / 15; // 0..1
+  // interpolate hue: 182 (cyan) → 311 (magenta)
+  const h = Math.round(182 + (1 - t) * 129);
+  return `hsl(${h}, 100%, 55%)`;
+}
+
+/** Smooth counting number powered by framer-motion useSpring */
+function AnimatedNumber({ value, className }: { value: number; className?: string }) {
+  const spring = useSpring(value, { stiffness: 80, damping: 22 });
+  useEffect(() => { spring.set(value); }, [value, spring]);
+  const display = useTransform(spring, (v) => Math.round(v).toString());
+  return <motion.span className={className}>{display}</motion.span>;
+}
 
 export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout }: DashboardProps) {
   const { hrv, strain } = useMockBioData();
@@ -288,16 +306,28 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const currentDemoPhase = DEMO_PHASES[demoPhaseIndex];
 
+  const hrvBorderColor = getHrvBorderColor(hrv);
+
   return (
     <motion.div
-      className="min-h-screen w-full bg-background scanlines flex flex-col md:flex-row overflow-hidden text-foreground relative"
-      animate={
-        isInterrupted
-          ? { backgroundColor: ['#2D1B4E', '#4a0000', '#2D1B4E', '#4a0000', '#2D1B4E'] }
-          : { backgroundColor: '#2D1B4E' }
-      }
-      transition={{ duration: 0.4, repeat: isInterrupted ? 3 : 0 }}
+      className="min-h-screen w-full flex flex-col md:flex-row overflow-hidden text-foreground relative"
+      style={{ background: 'linear-gradient(135deg, #050505 0%, #0a0414 40%, #1A0B2E 100%)' }}
+      animate={isSessionActive ? { scale: [1, 1.015, 1] } : { scale: 1 }}
+      transition={isSessionActive ? { duration: 0.6, ease: 'easeInOut' } : { duration: 0.3 }}
     >
+      {/* Global scanline overlay */}
+      <div className="scanlines-overlay" />
+
+      {/* Red flash overlay on motion lock */}
+      <AnimatePresence>
+        {isInterrupted && (
+          <motion.div
+            className="absolute inset-0 z-[60] pointer-events-none"
+            animate={{ backgroundColor: ['rgba(180,0,0,0)', 'rgba(180,0,0,0.25)', 'rgba(180,0,0,0)', 'rgba(180,0,0,0.2)', 'rgba(180,0,0,0)'] }}
+            transition={{ duration: 0.4, repeat: 3 }}
+          />
+        )}
+      </AnimatePresence>
       {/* Provenance Modal */}
       <ProvenanceModal
         metric={provenanceMetric}
@@ -426,11 +456,24 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       </AnimatePresence>
 
       {/* ═══════════════ LEFT PANE: LIVING ROOM ═══════════════ */}
-      <div
-        className={cn(
-          'w-full md:w-1/2 h-[50vh] md:h-screen relative border-b-4 md:border-b-0 md:border-r-4 overflow-hidden flex flex-col transition-colors duration-300',
-          isInterrupted || presenceLost ? 'border-red-700' : isDemoMode ? 'border-primary' : camera.postureWarning ? 'border-yellow-600' : 'border-secondary'
-        )}
+      <motion.div
+        className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col"
+        style={{
+          borderColor: isInterrupted || presenceLost
+            ? '#ef4444'
+            : camera.postureWarning
+            ? '#facc15'
+            : isDemoMode
+            ? '#00F5FF'
+            : hrvBorderColor,
+          boxShadow: `inset -1px 0 0 0 ${
+            isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '30'
+          }`,
+          background: 'rgba(5, 2, 15, 0.6)',
+          backdropFilter: 'blur(12px)',
+        }}
+        animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
+        transition={{ duration: 1.5, ease: 'easeInOut' }}
       >
         <div className="absolute inset-0 z-0">
           <img
@@ -575,7 +618,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
         {/* Bio-Markers with Provenance Badges */}
         <div className="relative z-10 p-4 sm:p-8 flex gap-4">
-          <PixelPanel className="flex-1 bg-card/80 backdrop-blur-md">
+          <PixelPanel className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-muted-foreground font-pixel text-[10px]">
                 <Activity className="w-3 h-3 text-accent" />
@@ -584,10 +627,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               <ProvBadge onClick={() => setProvenanceMetric('HRV')} />
             </div>
             <div className="text-3xl font-terminal font-bold">
-              <NeonText color="magenta">{hrv}</NeonText>
+              <AnimatedNumber value={hrv} className="text-accent text-shadow-magenta" />
             </div>
           </PixelPanel>
-          <PixelPanel className="flex-1 bg-card/80 backdrop-blur-md">
+          <PixelPanel className="flex-1">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2 text-muted-foreground font-pixel text-[10px]">
                 <Brain className="w-3 h-3 text-accent" />
@@ -596,15 +639,21 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               <ProvBadge onClick={() => setProvenanceMetric('STRAIN')} />
             </div>
             <div className="text-3xl font-terminal font-bold text-foreground">
-              {strain}
+              <AnimatedNumber value={strain} className="text-foreground" />
               <span className="text-xs text-muted-foreground ml-1">/21</span>
             </div>
           </PixelPanel>
         </div>
-      </div>
+      </motion.div>
 
       {/* ═══════════════ RIGHT PANE: LEDGER ═══════════════ */}
-      <div className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col bg-background/95">
+      <div
+        className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col"
+        style={{
+          background: 'rgba(8, 3, 20, 0.55)',
+          backdropFilter: 'blur(16px)',
+        }}
+      >
 
         {/* Timer & Stats */}
         <div className="p-4 sm:p-8 border-b-4 border-secondary/30">
@@ -644,7 +693,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 APM
                 <ProvBadge onClick={() => setProvenanceMetric('APM')} />
               </div>
-              <div className="text-2xl sm:text-4xl font-terminal text-primary">{apm}</div>
+              <AnimatedNumber value={apm} className="text-2xl sm:text-4xl font-terminal text-primary text-shadow-neon" />
               {isSessionActive && (
                 <div
                   className={cn(
