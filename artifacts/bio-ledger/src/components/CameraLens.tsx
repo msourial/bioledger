@@ -226,8 +226,8 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
               postureWarning ? 'border-yellow-700/40' : ''
             )}
           >
-            <span className="font-pixel text-[8px] text-muted-foreground/60 uppercase tracking-widest leading-none">
-              HEAD
+            <span className="font-terminal text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
+              Head
             </span>
             <div className="h-1.5 w-full bg-white/5 rounded-full overflow-hidden">
               <motion.div
@@ -237,7 +237,7 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
               />
             </div>
             <span
-              className={`font-mono text-xs font-bold leading-none ${
+              className={`font-terminal text-xs font-bold leading-none ${
                 postureWarning ? 'text-yellow-400' : 'text-primary'
               }`}
             >
@@ -287,10 +287,10 @@ function HudTile({ label, value, valueColor, sub, subColor = 'text-muted-foregro
         alert ? 'border-red-700/40' : ''
       )}
     >
-      <span className="font-pixel text-[8px] text-muted-foreground/60 uppercase tracking-widest leading-none">
+      <span className="font-terminal text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest leading-none">
         {label}
       </span>
-      <span className={`font-mono text-base font-bold leading-tight ${valueColor}`}>{value}</span>
+      <span className={`font-terminal text-base font-bold leading-tight ${valueColor}`}>{value}</span>
       {sub && <span className={`font-pixel text-[7px] leading-none ${subColor}`}>{sub}</span>}
     </div>
   );

@@ -159,6 +159,16 @@
   50%       { opacity: 0.6; }
 }
 
+/* HRV-reactive neon shimmer — used on pane borders that interpolate cyan↔magenta */
+@keyframes neon-pulse-hrv {
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
+  50%       { opacity: 0.7; box-shadow: 0 0 16px currentColor; }
+}
+
 .neon-border-pulse {
   animation: neon-border-pulse 2s ease-in-out infinite;
+}
+
+.neon-pulse-hrv {
+  animation: neon-pulse-hrv 3s ease-in-out infinite;
 }

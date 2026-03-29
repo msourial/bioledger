@@ -724,11 +724,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       </motion.div>
 
       {/* ═══════════════ RIGHT PANE: LEDGER ═══════════════ */}
-      <div
-        className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl"
+      <motion.div
+        className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl border-l"
         style={{
           background: 'rgba(8, 3, 20, 0.55)',
+          borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor,
         }}
+        animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
+        transition={{ duration: 1.5, ease: 'easeInOut' }}
       >
 
         {/* Timer & Stats */}
@@ -1005,7 +1008,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             )}
           </AnimatePresence>
         </div>
-      </div>
+      </motion.div>
     </motion.div>
   );
 }
