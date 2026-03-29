@@ -39,7 +39,6 @@ interface WorldIdConfig {
   app_id: string | null;
   action: string;
   rp_id: string | null;
-  rp_context_available: boolean;
 }
 
 interface RpContext {
@@ -68,7 +67,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       .then((r) => r.json())
       .then((cfg: WorldIdConfig) => setWorldIdConfig(cfg))
       .catch(() =>
-        setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null, rp_context_available: false })
+        setWorldIdConfig({ configured: false, app_id: null, action: 'bio-ledger-verify', rp_id: null })
       );
   }, []);
 
@@ -93,29 +92,24 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
     const existing = localStorage.getItem('bio_ledger_nullifier');
 
     if (!worldIdConfig.configured) {
-      // No APP_ID — safe to run the cosmetic simulation
+      // No WORLD_ID_APP_ID — run the cosmetic simulation
       runSimulation(existing ?? undefined);
       return;
     }
 
-    // APP_ID is set → attempt real IDKit flow; never silently fall back to simulation
-    if (!worldIdConfig.rp_context_available) {
-      setVerifyError('RP signing key not configured. Set WORLD_ID_RP_ID + WORLD_ID_SIGNING_KEY to enable live ZK proof.');
-      return;
-    }
-
+    // WORLD_ID_APP_ID is set → open real IDKit widget
     try {
       const res = await fetch(`${API}/api/world-id/rp-context`);
       if (!res.ok) {
-        const body = await res.json().catch(() => ({})) as { hint?: string };
-        throw new Error(body.hint ?? `RP context request failed (${res.status})`);
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        throw new Error(body.error ?? `RP context request failed (${res.status})`);
       }
       const ctx: RpContext = await res.json();
       setRpContext(ctx);
       setWidgetOpen(true);
     } catch (err) {
       console.error('[World ID] RP context error:', err);
-      setVerifyError(err instanceof Error ? err.message : 'Failed to obtain RP context from backend.');
+      setVerifyError(err instanceof Error ? err.message : 'Failed to load World ID configuration.');
     }
   };
 

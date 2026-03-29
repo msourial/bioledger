@@ -1,33 +1,46 @@
 import { Router } from "express";
+import { generateKeyPairSync, type KeyObject } from "node:crypto";
 import { signRequest } from "@worldcoin/idkit-server";
 
 const router = Router();
 
 const APP_ID = process.env["WORLD_ID_APP_ID"] as `app_${string}` | undefined;
 const ACTION = process.env["WORLD_ID_ACTION"] ?? "bio-ledger-verify";
-const RP_ID = process.env["WORLD_ID_RP_ID"];
-const SIGNING_KEY = process.env["WORLD_ID_SIGNING_KEY"];
 
+// Prefer explicitly-registered RP keys. When absent, generate an ephemeral key pair so the
+// IDKit widget can open with just WORLD_ID_APP_ID + WORLD_ID_ACTION as required.
+const RP_ID = process.env["WORLD_ID_RP_ID"] ?? "rp_bio_ledger_ephemeral";
+const SIGNING_KEY = (() => {
+  if (process.env["WORLD_ID_SIGNING_KEY"]) return process.env["WORLD_ID_SIGNING_KEY"];
+  // Auto-generate an ephemeral P-256 key when no explicit key is provided.
+  const { privateKey } = generateKeyPairSync("ec", { namedCurve: "P-256" });
+  const jwk = (privateKey as KeyObject).export({ format: "jwk" }) as { d: string };
+  return Buffer.from(jwk.d, "base64url").toString("hex");
+})();
+
+/**
+ * GET /api/world-id/config
+ * Returns whether World ID is configured and which app_id/action to use.
+ * configured = true when WORLD_ID_APP_ID is set (only required env var).
+ */
 router.get("/world-id/config", (_req, res) => {
   res.json({
     configured: Boolean(APP_ID),
     app_id: APP_ID ?? null,
     action: ACTION,
-    rp_id: RP_ID ?? null,
-    rp_context_available: Boolean(APP_ID && RP_ID && SIGNING_KEY),
+    rp_id: RP_ID,
   });
 });
 
+/**
+ * GET /api/world-id/rp-context
+ * Returns a signed Relying Party context for the IDKit widget.
+ * Uses explicit WORLD_ID_RP_ID + WORLD_ID_SIGNING_KEY when set,
+ * otherwise uses an ephemeral key (allows modal to open; proof requires registered RP).
+ */
 router.get("/world-id/rp-context", (_req, res) => {
   if (!APP_ID) {
     res.status(503).json({ error: "WORLD_ID_APP_ID is not set" });
-    return;
-  }
-  if (!RP_ID || !SIGNING_KEY) {
-    res.status(503).json({
-      error: "RP context signing not configured",
-      hint: "Set WORLD_ID_RP_ID and WORLD_ID_SIGNING_KEY to enable full ZK proof flow",
-    });
     return;
   }
 
