@@ -327,8 +327,8 @@ export default function AuraChat({
             <div
               className="px-4 py-3 flex items-start gap-3 relative"
               style={{
-                background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(251,113,133,0.06) 100%)',
-                borderBottom: '1px solid rgba(139,92,246,0.22)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                borderBottom: '1px solid rgba(255, 255, 255, 0.12)',
               }}
             >
               <span className="text-xl flex-shrink-0 mt-0.5">{activeChallenge.emoji}</span>
@@ -423,10 +423,10 @@ export default function AuraChat({
                   <div
                     className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm leading-relaxed break-words"
                     style={{
-                      background: 'rgba(139, 92, 246, 0.08)',
-                      border: '1px solid rgba(139, 92, 246, 0.22)',
-                      boxShadow: '0 0 18px rgba(139, 92, 246, 0.14)',
-                      color: 'rgba(230, 220, 255, 0.93)',
+                      background: 'rgba(255, 255, 255, 0.07)',
+                      border: '1px solid rgba(255, 255, 255, 0.16)',
+                      boxShadow: '0 2px 16px rgba(0, 0, 0, 0.14)',
+                      color: 'rgba(240, 235, 255, 0.95)',
                     }}
                   >
                     {msg.content}
@@ -440,10 +440,10 @@ export default function AuraChat({
                   <div
                     className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed break-words"
                     style={{
-                      background: 'rgba(251, 113, 133, 0.08)',
-                      border: '1px solid rgba(251, 113, 133, 0.22)',
-                      boxShadow: '0 0 14px rgba(251, 113, 133, 0.10)',
-                      color: 'rgba(255, 225, 230, 0.93)',
+                      background: 'rgba(255, 170, 130, 0.10)',
+                      border: '1px solid rgba(255, 160, 110, 0.28)',
+                      boxShadow: '0 2px 14px rgba(0, 0, 0, 0.12)',
+                      color: 'rgba(255, 235, 220, 0.95)',
                     }}
                   >
                     {msg.content}
@@ -466,11 +466,11 @@ export default function AuraChat({
             <div
               className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2"
               style={{
-                background: 'rgba(139, 92, 246, 0.07)',
-                border: '1px solid rgba(139, 92, 246, 0.18)',
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: '1px solid rgba(255, 255, 255, 0.14)',
               }}
             >
-              <Loader2 className="w-3.5 h-3.5 text-violet-400 animate-spin" />
+              <Loader2 className="w-3.5 h-3.5 text-orange-300 animate-spin" />
               <span className="font-terminal text-sm text-violet-300/70">
                 {isVisionLoading ? 'AURA is looking…' : 'AURA is thinking…'}
               </span>
@@ -485,8 +485,8 @@ export default function AuraChat({
       <div
         className="px-4 py-2 flex items-center gap-3 flex-wrap backdrop-blur-xl"
         style={{
-          background: 'rgba(139,92,246,0.05)',
-          borderTop: '1px solid rgba(139,92,246,0.15)',
+          background: 'rgba(255, 255, 255, 0.04)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.12)',
         }}
       >
         <span className="font-pixel text-[7px] text-violet-400/50">LIVE</span>

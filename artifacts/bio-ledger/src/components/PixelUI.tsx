@@ -124,11 +124,11 @@ export const AuraOrb = ({ state = 'idle', size = 'lg', className }: AuraOrbProps
   const px = sizes[size];
 
   const coreColors = {
-    idle:    ['#8B5CF6', '#A78BFA', '#C4B5FD'],
-    active:  ['#34D399', '#6EE7B7', '#8B5CF6'],
-    signing: ['#F472B6', '#FB7185', '#8B5CF6'],
-    warning: ['#FBBF24', '#FCD34D', '#FB7185'],
-    demo:    ['#8B5CF6', '#FB7185', '#34D399'],
+    idle:    ['#FF9A7B', '#FFB8A4', '#FFD4C4'],   // warm peach — living, warm companion
+    active:  ['#34D399', '#FFB347', '#FF9A7B'],   // mint + golden + peach glow
+    signing: ['#F472B6', '#FF9A7B', '#FFD700'],   // pink/peach/gold burst
+    warning: ['#FBBF24', '#FCD34D', '#FB7185'],   // warm amber warning
+    demo:    ['#FF9A7B', '#FB7185', '#34D399'],   // warm coral/coral/mint
   };
 
   const [c1, c2, c3] = coreColors[state];

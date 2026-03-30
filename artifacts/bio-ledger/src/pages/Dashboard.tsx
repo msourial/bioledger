@@ -211,7 +211,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           postureElapsedRef.current += 1;
           if (postureElapsedRef.current >= 180 && !nudgeSentRef.current.posture) {
             nudgeSentRef.current.posture = true;
-            setProactiveNudge('Posture warning active for over 3 minutes. What should I do?');
+            setProactiveNudge("Hey AURA, I've been hunched over for a while — any stretches or tips? 🧘");
             setRightTab('chat');
           }
         }, 1000);
@@ -240,7 +240,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         const drop = ((baselineHrvRef.current - hrv) / baselineHrvRef.current) * 100;
         if (drop >= 15 && !nudgeSentRef.current.hrv) {
           nudgeSentRef.current.hrv = true;
-          setProactiveNudge(`My HRV just dropped from ${baselineHrvRef.current}ms to ${hrv}ms. Is that bad?`);
+          setProactiveNudge(`AURA, my body feels a bit stressed right now 💙 (HRV dipped from ${baselineHrvRef.current}ms to ${hrv}ms). What's up?`);
           setRightTab('chat');
         }
       }
@@ -258,7 +258,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     const hour = new Date().getHours();
     if (hour >= 22 && strain > 12 && !nudgeSentRef.current.lateNight) {
       nudgeSentRef.current.lateNight = true;
-      setProactiveNudge(`It's ${hour}:00 and my strain is ${strain}. Should I stop working?`);
+      setProactiveNudge(`Hey AURA, it's ${hour}:00 and I'm still going strong 🌙 Should I start winding down?`);
       setRightTab('chat');
     }
   }, [strain, isSessionActive]);
@@ -426,7 +426,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   return (
     <motion.div
       className="min-h-screen w-full flex flex-col md:flex-row overflow-hidden text-foreground relative"
-      style={{ background: 'linear-gradient(135deg, #050505 0%, #0a0414 40%, #1A0B2E 100%)' }}
+      style={{ background: 'linear-gradient(135deg, #180F3A 0%, #231455 40%, #2B1C5C 100%)' }}
       animate={isSessionActive ? { scale: [1, 1.015, 1] } : { scale: 1 }}
       transition={isSessionActive ? { duration: 0.6, ease: 'easeInOut' } : { duration: 0.3 }}
     >
@@ -494,13 +494,13 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             initial={{ opacity: 0, y: -40 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -40 }}
-            className="absolute top-0 inset-x-0 z-50 bg-yellow-950/95 border-b-2 border-yellow-600 px-4 py-2 flex items-center justify-center gap-3"
+            className="absolute top-0 inset-x-0 z-50 bg-amber-900/70 backdrop-blur-sm border-b border-amber-500/50 px-4 py-2 flex items-center justify-center gap-3"
           >
-            <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
-            <span className="font-terminal text-sm font-bold uppercase tracking-widest text-yellow-300">
-              Posture Warning — Straighten Up
+            <span className="text-base">🌿</span>
+            <span className="font-terminal text-sm font-semibold text-amber-200">
+              Gentle posture check — take a breath &amp; sit tall! ✨
             </span>
-            <AlertTriangle className="w-4 h-4 text-yellow-400 animate-pulse" />
+            <span className="text-base">💛</span>
           </motion.div>
         )}
       </AnimatePresence>
@@ -515,7 +515,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
             className="absolute bottom-0 inset-x-0 z-50 px-4 py-4"
-            style={{ background: 'linear-gradient(0deg, rgba(16,12,48,0.98) 0%, rgba(16,12,48,0.92) 100%)', borderTop: '1px solid rgba(139,92,246,0.35)' }}
+            style={{ background: 'linear-gradient(0deg, rgba(26,16,64,0.88) 0%, rgba(26,16,64,0.75) 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.12)' }}
           >
             <div className="max-w-lg mx-auto">
               {/* Step dots */}
@@ -559,7 +559,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
             className="absolute bottom-0 inset-x-0 z-50 px-4 py-4"
-            style={{ background: 'linear-gradient(0deg, rgba(16,12,48,0.98) 0%, rgba(16,12,48,0.92) 100%)', borderTop: '1px solid rgba(139,92,246,0.35)' }}
+            style={{ background: 'linear-gradient(0deg, rgba(26,16,64,0.88) 0%, rgba(26,16,64,0.75) 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.12)' }}
           >
             <div className="max-w-lg mx-auto flex items-center gap-3">
               <HardDrive className="w-4 h-4 text-violet-400 animate-bounce flex-shrink-0" />
@@ -579,15 +579,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           boxShadow: `inset -1px 0 0 0 ${
             isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '40'
           }`,
-          background: 'linear-gradient(160deg, rgba(20, 16, 56, 0.75) 0%, rgba(13, 10, 40, 0.85) 100%)',
+          background: 'linear-gradient(160deg, rgba(24, 15, 58, 0.42) 0%, rgba(20, 12, 48, 0.55) 100%)',
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
         transition={{ duration: 1.5, ease: 'easeInOut' }}
       >
-        {/* Aurora blobs behind content */}
+        {/* Aurora blobs behind content — warm coral/peach/mint */}
         <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="aurora-blob aurora-blob-1" style={{ opacity: 0.12 }} />
-          <div className="aurora-blob aurora-blob-2" style={{ opacity: 0.08 }} />
+          <div className="aurora-blob aurora-blob-1" />
+          <div className="aurora-blob aurora-blob-2" />
+          <div className="aurora-blob aurora-blob-3" />
         </div>
 
         {/* Header */}
@@ -792,7 +793,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       <motion.div
         className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl border-l"
         style={{
-          background: 'linear-gradient(160deg, rgba(16, 12, 48, 0.80) 0%, rgba(20, 14, 50, 0.90) 100%)',
+          background: 'linear-gradient(160deg, rgba(20, 14, 50, 0.45) 0%, rgba(26, 16, 60, 0.58) 100%)',
           borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor,
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
