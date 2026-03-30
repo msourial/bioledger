@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=JetBrains+Mono:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @theme inline {
@@ -16,42 +16,42 @@
   --color-border: hsl(var(--border));
 
   --font-pixel: 'Press Start 2P', cursive;
-  --font-terminal: 'JetBrains Mono', monospace;
+  --font-terminal: 'Inter', 'JetBrains Mono', sans-serif;
 }
 
 :root {
-  /* Deep near-black — midnight vault */
-  --background: 240 35% 4%;
+  /* Twilight navy — deep but warm, not pitch black */
+  --background: 234 52% 10%;
   /* Slightly lighter card surface */
-  --card: 252 45% 8%;
-  /* Light text */
-  --foreground: 220 20% 92%;
-  
-  /* Neon Teal #00F5FF */
-  --primary: 182 100% 50%;
-  --primary-foreground: 240 35% 4%;
-  
-  /* Magenta #702963 */
-  --secondary: 311 46% 30%;
+  --card: 236 48% 15%;
+  /* Warm light text */
+  --foreground: 248 80% 96%;
+
+  /* Soft Violet / Lavender — #8B5CF6 */
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+
+  /* Indigo secondary */
+  --secondary: 242 60% 40%;
   --secondary-foreground: 0 0% 100%;
-  
-  /* Bright Magenta accent */
-  --accent: 311 100% 60%;
+
+  /* Warm Coral / Rose — #FB7185 */
+  --accent: 352 96% 72%;
   --accent-foreground: 0 0% 100%;
 
-  /* Muted */
-  --muted: 245 30% 18%;
-  --muted-foreground: 230 20% 65%;
-  
-  --border: 311 46% 25%;
+  /* Muted — soft periwinkle */
+  --muted: 232 40% 22%;
+  --muted-foreground: 230 30% 68%;
+
+  --border: 232 42% 28%;
 }
 
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;
-    background: linear-gradient(135deg, #050505 0%, #0a0414 40%, #1A0B2E 100%);
+    background: linear-gradient(135deg, #0D1035 0%, #13103E 35%, #1A0F45 65%, #110D38 100%);
     background-attachment: fixed;
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'Inter', 'JetBrains Mono', sans-serif;
     font-size: 14px;
   }
 
@@ -61,56 +61,141 @@
 }
 
 /* ──────────────────────────────────────────────────────────
-   Scanline overlay — 2% opacity, sovereign OS feel
+   Aurora background blobs — soft glowing orbs
 ────────────────────────────────────────────────────────── */
-.scanlines-overlay {
+.aurora-bg {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 0;
   pointer-events: none;
-  background: repeating-linear-gradient(
-    0deg,
-    transparent,
-    transparent 2px,
-    rgba(0, 0, 0, 0.02) 2px,
-    rgba(0, 0, 0, 0.02) 4px
-  );
+  overflow: hidden;
+}
+
+.aurora-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  opacity: 0.18;
+}
+
+.aurora-blob-1 {
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, #8B5CF6 0%, transparent 70%);
+  top: -10%;
+  left: -10%;
+  animation: aurora-drift-1 18s ease-in-out infinite;
+}
+
+.aurora-blob-2 {
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, #FB7185 0%, transparent 70%);
+  bottom: -5%;
+  right: -5%;
+  animation: aurora-drift-2 22s ease-in-out infinite;
+}
+
+.aurora-blob-3 {
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, #34D399 0%, transparent 70%);
+  top: 40%;
+  left: 30%;
+  animation: aurora-drift-3 26s ease-in-out infinite;
+  opacity: 0.1;
+}
+
+@keyframes aurora-drift-1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(60px, 40px) scale(1.08); }
+  66%       { transform: translate(-30px, 60px) scale(0.95); }
+}
+
+@keyframes aurora-drift-2 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  40%       { transform: translate(-50px, -40px) scale(1.06); }
+  70%       { transform: translate(40px, -20px) scale(0.96); }
+}
+
+@keyframes aurora-drift-3 {
+  0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.10; }
+  50%       { transform: translate(-40px, -30px) scale(1.12); opacity: 0.15; }
 }
 
 /* ──────────────────────────────────────────────────────────
-   Glass panel utility
+   Glass panel utility — warm frosted indigo tint
 ────────────────────────────────────────────────────────── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(139, 92, 246, 0.06);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(139, 92, 246, 0.18);
 }
 
 .glass-panel-strong {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(139, 92, 246, 0.09);
   backdrop-filter: blur(32px);
   -webkit-backdrop-filter: blur(32px);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+}
+
+.glass-panel-warm {
+  background: rgba(251, 113, 133, 0.06);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(251, 113, 133, 0.18);
 }
 
 /* ──────────────────────────────────────────────────────────
-   Neon glow utilities
+   Soft glow utilities — warm, not harsh
 ────────────────────────────────────────────────────────── */
-.text-shadow-neon {
-  text-shadow: 0 0 8px rgba(0, 245, 255, 0.9), 0 0 20px rgba(0, 245, 255, 0.5);
+.text-shadow-violet {
+  text-shadow: 0 0 12px rgba(139, 92, 246, 0.7), 0 0 28px rgba(139, 92, 246, 0.3);
 }
 
-.text-shadow-magenta {
-  text-shadow: 0 0 8px rgba(255, 0, 200, 0.9), 0 0 20px rgba(255, 0, 200, 0.5);
+.text-shadow-coral {
+  text-shadow: 0 0 12px rgba(251, 113, 133, 0.7), 0 0 28px rgba(251, 113, 133, 0.3);
 }
 
-.glow-cyan {
-  box-shadow: 0 0 12px rgba(0, 245, 255, 0.25), 0 0 24px rgba(0, 245, 255, 0.1);
+.glow-violet {
+  box-shadow: 0 0 16px rgba(139, 92, 246, 0.3), 0 0 32px rgba(139, 92, 246, 0.12);
 }
 
-.glow-magenta {
-  box-shadow: 0 0 12px rgba(255, 0, 200, 0.25), 0 0 24px rgba(255, 0, 200, 0.1);
+.glow-coral {
+  box-shadow: 0 0 16px rgba(251, 113, 133, 0.3), 0 0 32px rgba(251, 113, 133, 0.12);
+}
+
+.glow-mint {
+  box-shadow: 0 0 16px rgba(52, 211, 153, 0.3), 0 0 32px rgba(52, 211, 153, 0.12);
+}
+
+/* Keep legacy aliases for components that still reference them */
+.text-shadow-neon   { text-shadow: 0 0 12px rgba(139, 92, 246, 0.7), 0 0 28px rgba(139, 92, 246, 0.3); }
+.text-shadow-magenta { text-shadow: 0 0 12px rgba(251, 113, 133, 0.7), 0 0 28px rgba(251, 113, 133, 0.3); }
+.glow-cyan    { box-shadow: 0 0 16px rgba(139, 92, 246, 0.3), 0 0 32px rgba(139, 92, 246, 0.12); }
+.glow-magenta { box-shadow: 0 0 16px rgba(251, 113, 133, 0.3), 0 0 32px rgba(251, 113, 133, 0.12); }
+
+/* ──────────────────────────────────────────────────────────
+   Aura Orb — glowing animated companion orb
+────────────────────────────────────────────────────────── */
+.aura-orb {
+  position: relative;
+  border-radius: 50%;
+}
+
+.aura-orb::before {
+  content: '';
+  position: absolute;
+  inset: -20%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.35) 0%, rgba(251, 113, 133, 0.15) 50%, transparent 70%);
+  animation: orb-pulse 3s ease-in-out infinite;
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50%       { transform: scale(1.12); opacity: 1; }
 }
 
 /* ──────────────────────────────────────────────────────────
@@ -121,54 +206,62 @@
   to   { transform: rotate(360deg); }
 }
 
-.scan-ring {
-  animation: scan-ring 3s linear infinite;
-}
-
-.scan-ring-slow {
-  animation: scan-ring 6s linear infinite;
-  animation-direction: reverse;
-}
+.scan-ring      { animation: scan-ring 3s linear infinite; }
+.scan-ring-slow { animation: scan-ring 6s linear infinite; animation-direction: reverse; }
 
 /* ──────────────────────────────────────────────────────────
-   Scrollbar — glass themed
+   Wellness Milestone card — celebratory receipt treatment
 ────────────────────────────────────────────────────────── */
-::-webkit-scrollbar {
-  width: 6px;
+.milestone-card {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.08) 0%, rgba(251, 113, 133, 0.05) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.22);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
 }
 
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.03);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(0, 245, 255, 0.3);
-  border-radius: 3px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 245, 255, 0.6);
+.milestone-card-mint {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.08) 0%, rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(52, 211, 153, 0.22);
+  border-radius: 16px;
+  backdrop-filter: blur(16px);
 }
 
 /* ──────────────────────────────────────────────────────────
-   Neon pulse border animation (HRV-reactive done in JS,
-   this is the base shimmer for static use)
+   Scrollbar — aurora themed
+────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(139, 92, 246, 0.04); }
+::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.35); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(139, 92, 246, 0.6); }
+
+/* ──────────────────────────────────────────────────────────
+   HRV-reactive border pulse
 ────────────────────────────────────────────────────────── */
 @keyframes neon-border-pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.6; }
 }
 
-/* HRV-reactive neon shimmer — used on pane borders that interpolate cyan↔magenta */
 @keyframes neon-pulse-hrv {
   0%, 100% { opacity: 1; box-shadow: 0 0 8px currentColor; }
   50%       { opacity: 0.7; box-shadow: 0 0 16px currentColor; }
 }
 
-.neon-border-pulse {
-  animation: neon-border-pulse 2s ease-in-out infinite;
+.neon-border-pulse { animation: neon-border-pulse 2s ease-in-out infinite; }
+.neon-pulse-hrv    { animation: neon-pulse-hrv 3s ease-in-out infinite; }
+
+/* ──────────────────────────────────────────────────────────
+   Button — warm pill/rounded style
+────────────────────────────────────────────────────────── */
+.btn-aurora {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25) 0%, rgba(251, 113, 133, 0.15) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.4);
+  border-radius: 12px;
+  transition: all 0.2s ease;
 }
 
-.neon-pulse-hrv {
-  animation: neon-pulse-hrv 3s ease-in-out infinite;
+.btn-aurora:hover {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.38) 0%, rgba(251, 113, 133, 0.22) 100%);
+  border-color: rgba(139, 92, 246, 0.7);
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.25);
 }

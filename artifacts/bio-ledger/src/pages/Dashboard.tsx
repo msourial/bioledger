@@ -24,7 +24,7 @@ import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
 import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
-import { PixelPanel, PixelButton, NeonText } from '@/components/PixelUI';
+import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
 import ReceiptChainCard from '@/components/ReceiptChainCard';
@@ -50,14 +50,16 @@ const DEMO_PHASES = [
   { threshold: DEMO_TIME - 50, step: 4, label: 'STORAGE',    msg: 'Queuing Filecoin upload via Synapse SDK warm storage…' },
 ] as const;
 
-/** Lerp HRV value → neon-cyan (#00F5FF) at ≥70ms, magenta (#FF00CC) at <55ms */
+/** Lerp HRV value → soft violet (#8B5CF6) at ≥70ms, warm coral (#FB7185) at <55ms */
 function getHrvBorderColor(hrv: number): string {
-  if (hrv >= 70) return '#00F5FF';
-  if (hrv <= 55) return '#FF00CC';
+  if (hrv >= 70) return '#8B5CF6';
+  if (hrv <= 55) return '#FB7185';
   const t = (hrv - 55) / 15; // 0..1
-  // interpolate hue: 182 (cyan) → 311 (magenta)
-  const h = Math.round(182 + (1 - t) * 129);
-  return `hsl(${h}, 100%, 55%)`;
+  // interpolate hue: 258 (violet) → 352 (coral)
+  const h = Math.round(258 + (1 - t) * 94);
+  const s = Math.round(85 + (1 - t) * 11);
+  const l = Math.round(66 + (1 - t) * 6);
+  return `hsl(${h}, ${s}%, ${l}%)`;
 }
 
 /** Smooth counting number powered by framer-motion useSpring */
@@ -465,29 +467,30 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="absolute bottom-0 inset-x-0 z-50 bg-background/95 border-t-2 border-primary/50 px-4 py-3"
+            className="absolute bottom-0 inset-x-0 z-50 px-4 py-4"
+            style={{ background: 'linear-gradient(0deg, rgba(16,12,48,0.98) 0%, rgba(16,12,48,0.92) 100%)', borderTop: '1px solid rgba(139,92,246,0.35)' }}
           >
             <div className="max-w-lg mx-auto">
               {/* Step dots */}
-              <div className="flex items-center gap-1 mb-2">
+              <div className="flex items-center gap-1.5 mb-2.5">
                 {DEMO_PHASES.map((p, i) => (
                   <div
                     key={p.step}
                     className={cn(
-                      'h-1 rounded-full transition-all duration-500',
-                      i <= demoPhaseIndex ? 'bg-primary w-6' : 'bg-secondary/40 w-3'
+                      'h-1.5 rounded-full transition-all duration-500',
+                      i <= demoPhaseIndex ? 'bg-violet-400 w-8' : 'bg-violet-400/20 w-3'
                     )}
                   />
                 ))}
-                <span className="font-terminal text-sm font-bold text-muted-foreground/60 ml-2">
+                <span className="font-terminal text-sm font-semibold text-violet-300/70 ml-2">
                   Step {currentDemoPhase.step}/{DEMO_PHASES.length}
                 </span>
               </div>
               <div className="flex items-start gap-3">
-                <Zap className="w-4 h-4 text-primary flex-shrink-0 mt-0.5 animate-pulse" />
+                <Zap className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5 animate-pulse" />
                 <div>
-                  <span className="font-terminal text-sm font-bold text-primary mr-2">
-                    ⬡ {currentDemoPhase.label}
+                  <span className="font-terminal text-sm font-bold text-violet-300 mr-2">
+                    ✦ {currentDemoPhase.label}
                   </span>
                   <span className="font-terminal text-sm text-muted-foreground">
                     {currentDemoPhase.msg}
@@ -508,12 +511,13 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="absolute bottom-0 inset-x-0 z-50 bg-background/95 border-t-2 border-primary/50 px-4 py-3"
+            className="absolute bottom-0 inset-x-0 z-50 px-4 py-4"
+            style={{ background: 'linear-gradient(0deg, rgba(16,12,48,0.98) 0%, rgba(16,12,48,0.92) 100%)', borderTop: '1px solid rgba(139,92,246,0.35)' }}
           >
             <div className="max-w-lg mx-auto flex items-center gap-3">
-              <HardDrive className="w-4 h-4 text-primary animate-bounce flex-shrink-0" />
+              <HardDrive className="w-4 h-4 text-violet-400 animate-bounce flex-shrink-0" />
               <div>
-                <span className="font-terminal text-sm font-bold text-primary mr-2">⬡ Storage</span>
+                <span className="font-terminal text-sm font-bold text-violet-300 mr-2">✦ Saving to Filecoin…</span>
                 <span className="font-terminal text-sm text-muted-foreground">{filingPhase}</span>
               </div>
             </div>
@@ -526,20 +530,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col backdrop-blur-xl"
         style={{
           boxShadow: `inset -1px 0 0 0 ${
-            isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '30'
+            isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '40'
           }`,
-          background: 'rgba(5, 2, 15, 0.6)',
+          background: 'linear-gradient(160deg, rgba(20, 16, 56, 0.75) 0%, rgba(13, 10, 40, 0.85) 100%)',
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
         transition={{ duration: 1.5, ease: 'easeInOut' }}
       >
-        <div className="absolute inset-0 z-0">
-          <img
-            src={`${import.meta.env.BASE_URL}images/hero-bg.png`}
-            alt="Room Background"
-            className="w-full h-full object-cover opacity-30"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/80 to-transparent" />
+        {/* Aurora blobs behind content */}
+        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+          <div className="aurora-blob aurora-blob-1" style={{ opacity: 0.12 }} />
+          <div className="aurora-blob aurora-blob-2" style={{ opacity: 0.08 }} />
         </div>
 
         {/* Header */}
@@ -568,14 +569,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             </div>
             {/* AURA-AGENT-V1 Identity Badge */}
             <motion.div
-              className="flex items-center gap-1.5 mt-2 px-2 py-0.5 border border-primary/30 bg-primary/5 w-fit"
-              animate={{ borderColor: ['rgba(0,245,255,0.3)', 'rgba(0,245,255,0.6)', 'rgba(0,245,255,0.3)'] }}
+              className="flex items-center gap-1.5 mt-2 px-3 py-1 border border-violet-400/30 bg-violet-500/8 rounded-full w-fit"
+              animate={{ borderColor: ['rgba(139,92,246,0.3)', 'rgba(139,92,246,0.6)', 'rgba(139,92,246,0.3)'] }}
               transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
             >
-              <Package className="w-2.5 h-2.5 text-primary" />
-              <span className="font-pixel text-[7px] text-primary tracking-widest">AURA-AGENT-V1</span>
+              <Package className="w-2.5 h-2.5 text-violet-400" />
+              <span className="font-pixel text-[7px] text-violet-300 tracking-widest">AURA-AGENT-V1</span>
               <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-              <span className="font-pixel text-[7px] text-accent/80 tracking-wider">ERC-8004</span>
+              <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
             </motion.div>
           </div>
           <button
@@ -587,98 +588,86 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           </button>
         </div>
 
-        {/* Companion Avatar */}
+        {/* Companion Avatar — AURA Orb */}
         <div className="relative z-10 flex-1 flex items-center justify-center">
           <motion.div
-            animate={{ y: [0, -5, 0] }}
+            animate={{ y: [0, -8, 0] }}
             transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
-            className="relative"
+            className="relative flex flex-col items-center gap-4"
           >
-            <img
-              src={`${import.meta.env.BASE_URL}images/avatar.png`}
-              alt="User Avatar"
-              className="w-48 h-48 sm:w-64 sm:h-64 object-contain filter drop-shadow-[0_0_15px_rgba(112,41,99,0.5)]"
+            <AuraOrb
+              state={
+                companionState === 'signing' ? 'signing'
+                  : companionState === 'presence-lost' ? 'warning'
+                  : companionState === 'posture' ? 'warning'
+                  : companionState === 'demo' ? 'demo'
+                  : isSessionActive ? 'active'
+                  : 'idle'
+              }
+              size="lg"
             />
-
-            {/* Companion AI Robot — state-aware animation */}
-            <motion.div
-              animate={
-                companionState === 'signing'
-                  ? { y: [0, -15, 0, -10, 0], x: [0, 8, -8, 4, 0], scale: [1, 1.15, 1, 1.1, 1] }
-                  : companionState === 'presence-lost'
-                  ? { rotate: [0, -5, 5, -5, 0] }
-                  : companionState === 'posture'
-                  ? { rotate: [0, -3, 3, -2, 0], y: [0, 3, 0] }
-                  : companionState === 'demo'
-                  ? { y: [0, -12, 0], x: [0, 6, -6, 0], scale: [1, 1.08, 1] }
-                  : { y: [0, -10, 0], x: [0, 5, 0] }
-              }
-              transition={
-                companionState === 'signing'
-                  ? { duration: 1.2, repeat: Infinity, ease: 'easeInOut' }
-                  : companionState === 'presence-lost'
-                  ? { duration: 0.4, repeat: Infinity }
-                  : companionState === 'posture'
-                  ? { duration: 0.8, repeat: Infinity }
-                  : companionState === 'demo'
-                  ? { duration: 2, repeat: Infinity, ease: 'easeInOut' }
-                  : { duration: 3, repeat: Infinity, ease: 'easeInOut' }
-              }
-              className="absolute -top-10 -right-10 w-24 h-24"
-              style={
-                companionState === 'signing'
-                  ? { filter: 'drop-shadow(0 0 16px #00F5FF) drop-shadow(0 0 6px #00F5FF)' }
-                  : companionState === 'presence-lost'
-                  ? { filter: 'drop-shadow(0 0 12px #ef4444) hue-rotate(300deg)' }
-                  : companionState === 'posture'
-                  ? { filter: 'drop-shadow(0 0 10px #facc15) sepia(0.8)' }
-                  : companionState === 'demo'
-                  ? { filter: 'drop-shadow(0 0 20px #00F5FF) drop-shadow(0 0 8px #702963)' }
-                  : {}
-              }
-            >
-              <img
-                src={`${import.meta.env.BASE_URL}images/companion.png`}
-                alt="Companion AI"
-                className="w-full h-full object-contain"
-              />
-              {/* Signing badge */}
+            {/* State label beneath orb */}
+            <AnimatePresence mode="wait">
               {companionState === 'signing' && (
                 <motion.div
-                  animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 0.8, repeat: Infinity }}
-                  className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-primary bg-background/90 px-2 py-0.5 border border-primary/50"
+                  key="signing"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: [0.7, 1, 0.7] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1, repeat: Infinity }}
+                  className="font-terminal text-sm font-semibold text-violet-300 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-400/30"
                 >
-                  SIGNING...
+                  ✦ AURA Signing…
                 </motion.div>
               )}
-              {/* Demo badge */}
               {companionState === 'demo' && (
                 <motion.div
-                  animate={{ opacity: [0.7, 1, 0.7] }}
-                  transition={{ duration: 0.6, repeat: Infinity }}
-                  className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-primary bg-background/90 px-2 py-0.5 border border-primary/50"
+                  key="demo"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: [0.8, 1, 0.8] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 1.5, repeat: Infinity }}
+                  className="font-terminal text-sm font-semibold text-violet-300 px-3 py-1 rounded-full bg-violet-500/15 border border-violet-400/30"
                 >
-                  DEMO
+                  ✦ Demo Mode
                 </motion.div>
               )}
-              {/* Posture warning badge */}
               {companionState === 'posture' && (
                 <motion.div
+                  key="posture"
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: [0, 1, 0] }}
-                  transition={{ duration: 0.6, repeat: Infinity }}
-                  className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-yellow-400 bg-background/90 px-2 py-0.5 border border-yellow-600/50"
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.7, repeat: Infinity }}
+                  className="font-terminal text-sm font-semibold text-amber-300 px-3 py-1 rounded-full bg-amber-500/15 border border-amber-400/30"
                 >
-                  POSTURE!
+                  💛 Sit up straight!
                 </motion.div>
               )}
-              {/* Presence lost badge */}
               {companionState === 'presence-lost' && (
-                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap font-pixel text-[7px] text-red-400 bg-background/90 px-2 py-0.5 border border-red-700/50">
-                  NO PRESENCE
-                </div>
+                <motion.div
+                  key="presence"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="font-terminal text-sm font-semibold text-rose-300 px-3 py-1 rounded-full bg-rose-500/15 border border-rose-400/30"
+                >
+                  👁 Come back!
+                </motion.div>
               )}
-            </motion.div>
+              {isSessionActive && companionState === 'idle' && (
+                <motion.div
+                  key="active"
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: [0.6, 1, 0.6] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 3, repeat: Infinity }}
+                  className="font-terminal text-sm font-semibold text-emerald-300 px-3 py-1 rounded-full bg-emerald-500/12 border border-emerald-400/25"
+                >
+                  🌿 In the zone
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
 
@@ -697,7 +686,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               <ProvBadge onClick={() => setProvenanceMetric('HRV')} />
             </div>
             <div className="flex items-baseline gap-1">
-              <AnimatedNumber value={hrv} className="text-4xl font-terminal font-bold text-accent text-shadow-magenta" />
+              <AnimatedNumber value={hrv} className="text-4xl font-terminal font-bold text-primary text-shadow-violet" />
             </div>
           </PixelPanel>
           <PixelPanel className="flex-1">
@@ -720,7 +709,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       <motion.div
         className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl border-l"
         style={{
-          background: 'rgba(8, 3, 20, 0.55)',
+          background: 'linear-gradient(160deg, rgba(16, 12, 48, 0.80) 0%, rgba(20, 14, 50, 0.90) 100%)',
           borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor,
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}

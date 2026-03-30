@@ -226,10 +226,12 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       : null;
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center scanlines relative overflow-hidden bg-background">
-      <div className="absolute inset-0 z-0 opacity-20">
-        <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-primary/20 rounded-full blur-3xl animate-pulse" />
-        <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-accent/20 rounded-full blur-3xl animate-pulse" />
+    <div className="min-h-screen w-full flex items-center justify-center relative overflow-hidden bg-background">
+      {/* Aurora background orbs */}
+      <div className="absolute inset-0 z-0 pointer-events-none overflow-hidden">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="aurora-blob aurora-blob-2" />
+        <div className="aurora-blob aurora-blob-3" />
       </div>
 
       {widgetProps && (
@@ -248,30 +250,28 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
           variant="primary"
           className="flex flex-col items-center py-10 px-8 text-center bg-card/90 backdrop-blur-sm"
         >
+          {/* Aurora orb logo */}
           <motion.div
-            animate={{
-              y: [0, -10, 0],
-              boxShadow: [
-                '0px 0px 0px 0px hsl(var(--primary))',
-                '0px 0px 20px 5px hsl(var(--primary))',
-                '0px 0px 0px 0px hsl(var(--primary))',
-              ],
-            }}
-            transition={{ duration: 4, repeat: Infinity }}
-            className="w-20 h-20 mb-6 bg-primary/10 flex items-center justify-center rounded-sm border-2 border-primary"
+            animate={{ y: [0, -8, 0], scale: [1, 1.04, 1] }}
+            transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+            className="w-24 h-24 mb-6 flex items-center justify-center"
           >
-            <img
-              src={`${import.meta.env.BASE_URL}images/vault-logo.png`}
-              alt="Vault Logo"
-              className="w-14 h-14 object-contain"
-            />
+            <div
+              className="w-20 h-20 rounded-full flex items-center justify-center"
+              style={{
+                background: 'radial-gradient(circle at 38% 38%, #a78bfa 0%, #8b5cf6 45%, #6d28d9 100%)',
+                boxShadow: '0 0 32px rgba(139,92,246,0.55), 0 0 12px rgba(139,92,246,0.35)',
+              }}
+            >
+              <ShieldCheck className="w-10 h-10 text-white/90" />
+            </div>
           </motion.div>
 
           <h1 className="font-pixel text-xl sm:text-2xl mb-1 tracking-widest text-foreground">
-            BIO-LEDGER
+            Bio-Ledger
           </h1>
-          <h2 className="font-pixel text-[10px] sm:text-xs mb-6 text-muted-foreground">
-            <NeonText>SOVEREIGN VAULT</NeonText>
+          <h2 className="font-terminal text-sm sm:text-base mb-6 font-semibold" style={{ color: '#a78bfa' }}>
+            Your Verifiable Life Graph
           </h2>
 
           <div className="w-full flex items-center gap-2 mb-6">
@@ -313,8 +313,8 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 exit={{ opacity: 0 }}
                 className="flex flex-col gap-4 w-full"
               >
-                <p className="font-terminal text-sm text-muted-foreground mb-2">
-                  Prove your humanity. Access your sovereign data.
+                <p className="font-terminal text-sm text-muted-foreground mb-2 leading-relaxed">
+                  Welcome! Prove your humanity privately with World ID, then unlock your personal wellness data.
                 </p>
                 <PixelButton
                   onClick={handleWorldId}
@@ -322,23 +322,23 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   className="w-full flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-wait"
                 >
                   <Lock className="w-4 h-4" />
-                  {worldIdConfig === null ? 'LOADING...' : 'VERIFY WITH WORLD ID'}
+                  {worldIdConfig === null ? 'Loading…' : 'Sign in with World ID'}
                 </PixelButton>
                 <div className="relative">
                   <div className="w-full h-px bg-secondary/40 my-1" />
                   <span className="absolute inset-x-0 -top-2.5 flex justify-center">
-                    <span className="px-2 bg-card font-pixel text-[8px] text-muted-foreground/40">THEN</span>
+                    <span className="px-2 bg-card font-terminal text-sm text-muted-foreground/40">then</span>
                   </span>
                 </div>
                 <button
                   disabled
-                  className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-dashed border-secondary/30 font-pixel text-xs text-muted-foreground/40 cursor-not-allowed"
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-dashed border-secondary/30 rounded-xl font-terminal text-sm text-muted-foreground/40 cursor-not-allowed"
                 >
                   <Activity className="w-4 h-4" />
-                  AUTHORIZE BIO-SOURCES
+                  Connect bio-sources
                 </button>
-                <p className="font-pixel text-[8px] text-muted-foreground/50 mt-1">
-                  POWERED BY WORLD ID · SEMAPHORE ZK PROTOCOL
+                <p className="font-pixel text-[8px] text-muted-foreground/40 mt-1">
+                  Privacy-first · ZK proofs · Your data, forever yours
                 </p>
               </motion.div>
             )}
@@ -355,33 +355,33 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 exit={{ opacity: 0 }}
                 className="flex flex-col gap-4 w-full"
               >
-                <div className="flex items-center justify-center gap-2 text-primary font-pixel text-xs mb-2">
+                <div className="flex items-center justify-center gap-2 font-terminal text-base font-semibold mb-2" style={{ color: '#34d399' }}>
                   <ShieldCheck className="w-5 h-5" />
-                  IDENTITY CONFIRMED
+                  Identity confirmed!
                 </div>
                 {worldIdConfig?.configured && (
-                  <p className="font-pixel text-[7px] text-primary/50 text-center">✓ ZK PROOF VERIFIED ON-CHAIN</p>
+                  <p className="font-terminal text-sm text-emerald-400/60 text-center">✓ ZK proof verified on-chain</p>
                 )}
                 <div className="w-full h-px bg-secondary/40" />
-                <p className="font-terminal text-sm text-muted-foreground">
-                  Connect your bio-data sources for certified metrics.
+                <p className="font-terminal text-sm text-muted-foreground leading-relaxed">
+                  Connect your wearables to unlock certified health metrics, or try the demo to explore.
                 </p>
                 <PixelButton
                   onClick={handleConnectWhoop}
                   className="w-full flex items-center justify-center gap-3"
                 >
                   <Wifi className="w-4 h-4" />
-                  AUTHORIZE WHOOP / APPLE HEALTH
+                  Connect WHOOP / Apple Health
                 </PixelButton>
                 <button
                   onClick={handleDemoMode}
-                  className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-secondary/50 font-pixel text-xs text-muted-foreground hover:border-accent hover:text-accent transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-center gap-3 px-4 py-3 border-2 border-violet-500/30 rounded-xl font-terminal text-sm text-muted-foreground hover:border-violet-400/60 hover:text-violet-300 transition-colors cursor-pointer"
                 >
                   <WifiOff className="w-4 h-4" />
-                  SKIP — USE DEMO DATA
+                  Try demo first
                 </button>
-                <p className="font-pixel text-[8px] text-muted-foreground/50">
-                  WHOOP API V2 · APPLE HEALTHKIT · 2026 DATA STANDARD
+                <p className="font-pixel text-[8px] text-muted-foreground/40">
+                  WHOOP API V2 · Apple HealthKit · Privacy-first
                 </p>
               </motion.div>
             )}
@@ -398,15 +398,17 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 className="flex flex-col items-center gap-4"
               >
                 <motion.div
-                  animate={{ scale: [1, 1.15, 1] }}
+                  animate={{ scale: [1, 1.12, 1] }}
                   transition={{ duration: 1.5, repeat: Infinity }}
+                  className="w-16 h-16 rounded-full flex items-center justify-center"
+                  style={{ background: 'radial-gradient(circle, #a78bfa 0%, #6d28d9 100%)', boxShadow: '0 0 28px rgba(139,92,246,0.5)' }}
                 >
-                  <ShieldCheck className="w-14 h-14 text-primary" />
+                  <ShieldCheck className="w-8 h-8 text-white" />
                 </motion.div>
-                <p className="font-pixel text-xs text-primary">
-                  {bioSourceConnected ? 'WHOOP CONNECTED' : 'DEMO MODE ACTIVE'}
+                <p className="font-terminal text-base font-semibold text-violet-300">
+                  {bioSourceConnected ? 'WHOOP connected!' : 'Ready to explore!'}
                 </p>
-                <p className="font-pixel text-[8px] text-muted-foreground/50">ENTERING SOVEREIGN VAULT...</p>
+                <p className="font-terminal text-sm text-muted-foreground/60">Opening your wellness journey…</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -425,11 +427,11 @@ function generateNullifier(): string {
 function StepDot({ active, label }: { active: boolean; label: string }) {
   return (
     <motion.div
-      animate={active ? { boxShadow: ['0 0 0px #00F5FF', '0 0 8px #00F5FF', '0 0 0px #00F5FF'] } : {}}
+      animate={active ? { boxShadow: ['0 0 0px #8b5cf6', '0 0 10px #8b5cf6', '0 0 0px #8b5cf6'] } : {}}
       transition={{ duration: 2, repeat: Infinity }}
       className={cn(
-        'w-6 h-6 flex-shrink-0 flex items-center justify-center border-2 font-pixel text-[9px] transition-colors duration-500',
-        active ? 'border-primary text-primary bg-primary/10' : 'border-muted text-muted-foreground/40 bg-transparent'
+        'w-6 h-6 flex-shrink-0 flex items-center justify-center border-2 rounded-full font-pixel text-[9px] transition-colors duration-500',
+        active ? 'border-violet-400 text-violet-300 bg-violet-500/12' : 'border-muted text-muted-foreground/40 bg-transparent'
       )}
     >
       {label}
@@ -447,24 +449,25 @@ function ZkAnimation({ steps, stepIndex, label }: { steps: string[]; stepIndex: 
       className="flex flex-col items-center gap-4 w-full"
     >
       <motion.div animate={{ rotate: 360 }} transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}>
-        <Cpu className="w-8 h-8 text-primary" />
+        <Cpu className="w-8 h-8 text-violet-400" />
       </motion.div>
-      <p className="font-pixel text-[9px] text-muted-foreground">{label}</p>
-      <div className="w-full bg-background/80 border border-primary/30 p-4 text-left">
+      <p className="font-terminal text-sm text-muted-foreground/70">{label}</p>
+      <div className="w-full bg-violet-500/5 border border-violet-500/20 rounded-xl p-4 text-left">
         {steps.slice(0, stepIndex + 1).map((step, i) => (
           <motion.div
             key={step}
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
-            className={`font-terminal text-xs mb-1 ${i === stepIndex ? 'text-primary' : 'text-muted-foreground/60'}`}
+            className={`font-terminal text-sm mb-1 ${i === stepIndex ? 'text-violet-300' : 'text-muted-foreground/50'}`}
           >
-            {i < stepIndex ? '✓ ' : '> '}{step}
+            {i < stepIndex ? '✓ ' : '↳ '}{step}
           </motion.div>
         ))}
       </div>
-      <div className="w-full bg-secondary/20 h-1 rounded-full overflow-hidden">
+      <div className="w-full bg-secondary/20 h-1.5 rounded-full overflow-hidden">
         <motion.div
-          className="h-full bg-primary"
+          className="h-full rounded-full"
+          style={{ background: 'linear-gradient(90deg, #8b5cf6, #fb7185)' }}
           animate={{ width: `${((stepIndex + 1) / steps.length) * 100}%` }}
           transition={{ duration: 0.4 }}
         />

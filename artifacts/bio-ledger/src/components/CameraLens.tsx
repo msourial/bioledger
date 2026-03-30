@@ -49,7 +49,7 @@ export default function CameraLens({ camera, isSessionActive }: CameraLensProps)
     ? '#ef4444'
     : postureWarning
     ? '#facc15'
-    : '#00F5FF';
+    : '#8B5CF6';
 
   return (
     <div className="relative z-10 px-4 sm:px-8 pb-4">

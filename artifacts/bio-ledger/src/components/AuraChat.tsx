@@ -97,7 +97,7 @@ export default function AuraChat({
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
-      content: `AURA online. Bio-link established. HRV ${bioContext.hrv}ms · Strain ${bioContext.strain}/21 · Vision ${bioContext.focusScore}/100. Awaiting query.`,
+      content: `Hi! 🌸 I'm AURA, your personal wellness companion. I can see you're doing great — HRV ${bioContext.hrv}ms looks healthy! I'm here whenever you need a check-in, a motivational nudge, or just someone to talk to. Start a focus session and let's make today amazing together! ✨`,
       timestamp: new Date(),
     },
   ]);
@@ -253,23 +253,23 @@ export default function AuraChat({
               className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
             >
               {msg.role === 'assistant' ? (
-                /* AURA bubble — cyan glow */
+                /* AURA bubble — violet glow */
                 <div className="max-w-[82%] flex flex-col gap-1">
                   <div className="flex items-center gap-1.5 ml-1">
-                    <span className="font-pixel text-[7px] text-primary/80">AURA</span>
+                    <span className="font-pixel text-[7px] text-violet-400/90">AURA</span>
                     {msg.fallback && (
-                      <span className="font-pixel text-[6px] text-muted-foreground/40 border border-muted-foreground/20 px-1">
-                        LOCAL
+                      <span className="font-pixel text-[6px] text-muted-foreground/40 border border-muted-foreground/20 px-1 rounded">
+                        offline
                       </span>
                     )}
                   </div>
                   <div
                     className="px-4 py-2.5 rounded-2xl rounded-tl-sm text-sm leading-relaxed break-words"
                     style={{
-                      background: 'rgba(0, 245, 255, 0.06)',
-                      border: '1px solid rgba(0, 245, 255, 0.18)',
-                      boxShadow: '0 0 16px rgba(0, 245, 255, 0.12)',
-                      color: 'rgba(220, 240, 255, 0.9)',
+                      background: 'rgba(139, 92, 246, 0.08)',
+                      border: '1px solid rgba(139, 92, 246, 0.22)',
+                      boxShadow: '0 0 18px rgba(139, 92, 246, 0.14)',
+                      color: 'rgba(230, 220, 255, 0.93)',
                     }}
                   >
                     {msg.content}
@@ -279,15 +279,15 @@ export default function AuraChat({
                   </span>
                 </div>
               ) : (
-                /* User bubble — magenta glow */
+                /* User bubble — rose glow */
                 <div className="max-w-[82%] flex flex-col gap-1 items-end">
                   <div
                     className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed break-words"
                     style={{
-                      background: 'rgba(255, 0, 200, 0.08)',
-                      border: '1px solid rgba(255, 0, 200, 0.22)',
-                      boxShadow: '0 0 14px rgba(255, 0, 200, 0.1)',
-                      color: 'rgba(255, 220, 255, 0.9)',
+                      background: 'rgba(251, 113, 133, 0.08)',
+                      border: '1px solid rgba(251, 113, 133, 0.22)',
+                      boxShadow: '0 0 14px rgba(251, 113, 133, 0.10)',
+                      color: 'rgba(255, 225, 230, 0.93)',
                     }}
                   >
                     {msg.content}
@@ -310,12 +310,12 @@ export default function AuraChat({
             <div
               className="px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-2"
               style={{
-                background: 'rgba(0, 245, 255, 0.05)',
-                border: '1px solid rgba(0, 245, 255, 0.15)',
+                background: 'rgba(139, 92, 246, 0.07)',
+                border: '1px solid rgba(139, 92, 246, 0.18)',
               }}
             >
-              <Loader2 className="w-3.5 h-3.5 text-primary animate-spin" />
-              <span className="font-pixel text-[7px] text-primary/70">AURA PROCESSING...</span>
+              <Loader2 className="w-3.5 h-3.5 text-violet-400 animate-spin" />
+              <span className="font-terminal text-sm text-violet-300/70">AURA is thinking…</span>
             </div>
           </motion.div>
         )}
@@ -327,44 +327,44 @@ export default function AuraChat({
       <div
         className="px-4 py-2 flex items-center gap-3 flex-wrap backdrop-blur-xl"
         style={{
-          background: 'rgba(255,255,255,0.04)',
-          borderTop: '1px solid rgba(255,255,255,0.08)',
+          background: 'rgba(139,92,246,0.05)',
+          borderTop: '1px solid rgba(139,92,246,0.15)',
         }}
       >
-        <span className="font-pixel text-[7px] text-muted-foreground/40">LIVE</span>
-        <span className="font-terminal text-sm text-primary/70">HRV {bioContext.hrv}ms</span>
-        <span className="font-terminal text-sm text-accent/60">Strain {bioContext.strain}</span>
+        <span className="font-pixel text-[7px] text-violet-400/50">LIVE</span>
+        <span className="font-terminal text-sm text-violet-300/70">HRV {bioContext.hrv}ms</span>
+        <span className="font-terminal text-sm text-rose-300/60">Strain {bioContext.strain}</span>
         <span className="font-terminal text-sm text-foreground/40">Vision {bioContext.focusScore}/100</span>
         {bioContext.postureWarning && (
-          <span className="font-pixel text-[7px] text-yellow-400 animate-pulse">⚠ POSTURE</span>
+          <span className="font-terminal text-sm text-amber-400 animate-pulse">💛 Posture</span>
         )}
         {bioContext.isSessionActive && (
-          <span className="font-pixel text-[7px] text-primary animate-pulse">● ACTIVE</span>
+          <span className="font-pixel text-[7px] text-emerald-400 animate-pulse">● Focus on</span>
         )}
         {recentReceipts.length > 0 && (
-          <span className="font-pixel text-[7px] text-muted-foreground/40">{recentReceipts.length} RECEIPTS</span>
+          <span className="font-pixel text-[7px] text-violet-400/50">{recentReceipts.length} milestones</span>
         )}
       </div>
 
       {/* Input */}
       <div
         className="p-3 flex gap-2 items-center"
-        style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
+        style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }}
       >
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={isListening ? 'Listening...' : 'Query AURA...'}
+          placeholder={isListening ? 'Listening…' : 'Ask AURA anything…'}
           disabled={isLoading || isListening}
           className={cn(
-            'flex-1 bg-white/5 px-4 py-2.5 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/30',
+            'flex-1 bg-violet-500/5 px-4 py-2.5 rounded-xl text-sm text-foreground placeholder:text-muted-foreground/40',
             'outline-none transition-all duration-200',
             'border',
             isListening
-              ? 'border-red-500/60 shadow-[0_0_12px_rgba(239,68,68,0.2)] animate-pulse'
-              : 'border-white/10 focus:border-primary/40 focus:shadow-[0_0_12px_rgba(0,245,255,0.15)]'
+              ? 'border-rose-500/60 shadow-[0_0_12px_rgba(251,113,133,0.2)] animate-pulse'
+              : 'border-violet-500/15 focus:border-violet-400/50 focus:shadow-[0_0_14px_rgba(139,92,246,0.18)]'
           )}
         />
 
@@ -375,8 +375,8 @@ export default function AuraChat({
             className={cn(
               'p-2.5 rounded-xl border transition-all cursor-pointer flex-shrink-0',
               isListening
-                ? 'border-red-500/60 text-red-400 bg-red-900/20'
-                : 'border-white/10 text-muted-foreground hover:border-primary/40 hover:text-primary'
+                ? 'border-rose-500/60 text-rose-400 bg-rose-900/20'
+                : 'border-violet-500/20 text-muted-foreground hover:border-violet-400/50 hover:text-violet-300'
             )}
           >
             {isListening ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -388,8 +388,8 @@ export default function AuraChat({
           className={cn(
             'p-2.5 rounded-xl border transition-all cursor-pointer flex-shrink-0',
             ttsEnabled
-              ? 'border-primary/60 text-primary bg-primary/10'
-              : 'border-white/10 text-muted-foreground hover:border-primary/40 hover:text-primary'
+              ? 'border-violet-400/60 text-violet-300 bg-violet-500/12'
+              : 'border-violet-500/20 text-muted-foreground hover:border-violet-400/50 hover:text-violet-300'
           )}
         >
           {ttsEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
@@ -399,9 +399,9 @@ export default function AuraChat({
           onClick={() => void sendMessage(input)}
           disabled={isLoading || !input.trim()}
           className={cn(
-            'p-2.5 rounded-xl border border-primary/60 text-primary',
-            'bg-primary/10 hover:bg-primary/20 transition-all cursor-pointer flex-shrink-0',
-            'shadow-[0_0_10px_rgba(0,245,255,0.15)] hover:shadow-[0_0_16px_rgba(0,245,255,0.3)]',
+            'p-2.5 rounded-xl border border-violet-400/60 text-violet-300',
+            'bg-violet-500/12 hover:bg-violet-500/22 transition-all cursor-pointer flex-shrink-0',
+            'shadow-[0_0_10px_rgba(139,92,246,0.18)] hover:shadow-[0_0_18px_rgba(139,92,246,0.32)]',
             'disabled:opacity-40 disabled:cursor-not-allowed disabled:shadow-none active:translate-y-0.5'
           )}
         >
