@@ -22,6 +22,8 @@ export interface UseCameraResult {
   postureWarning: boolean;
   visionMetrics: VisionMetrics;
   error: string | null;
+  /** Capture a full-res JPEG frame from the video stream; returns base64 string (no data-URL prefix) or null */
+  captureFrame: () => string | null;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -246,6 +248,20 @@ export function useCamera(enabled: boolean): UseCameraResult {
     return () => clearInterval(id);
   }, [isActive]);
 
+  const captureFrame = useCallback((): string | null => {
+    const video = videoRef.current;
+    if (!video || video.readyState < 2) return null;
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth || 320;
+    canvas.height = video.videoHeight || 240;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0);
+    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    const base64 = dataUrl.split(',')[1];
+    return base64 ?? null;
+  }, []);
+
   return {
     videoRef,
     pixelCanvasRef,
@@ -257,5 +273,6 @@ export function useCamera(enabled: boolean): UseCameraResult {
     postureWarning,
     visionMetrics,
     error,
+    captureFrame,
   };
 }

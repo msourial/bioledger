@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, Mic, MicOff, Volume2, VolumeX, Loader2 } from 'lucide-react';
+import { Send, Mic, MicOff, Volume2, VolumeX, Loader2, Camera, Star, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { auraChat, type AuraChatRequest } from '@workspace/api-client-react';
+import { auraChat, auraVision, type AuraChatRequest } from '@workspace/api-client-react';
+import type { WellnessChallenge } from '@/hooks/use-wellness-coach';
 
 export interface AuraBioContext {
   hrv: number;
@@ -30,17 +31,20 @@ interface Message {
   content: string;
   fallback?: boolean;
   timestamp: Date;
+  xpAwarded?: number;
 }
 
 interface AuraChatProps {
   bioContext: AuraBioContext;
   nullifierHash: string;
   onInsightSigned?: (text: string) => void;
-  /** A proactive nudge queued by Dashboard — auto-sent once then cleared */
   proactiveNudge?: string | null;
   onNudgeClear?: () => void;
-  /** Last 3 receipts for AURA context */
   recentReceipts?: ReceiptSummaryItem[];
+  activeChallenge?: WellnessChallenge | null;
+  captureFrame?: () => string | null;
+  onChallengeComplete?: (challengeId: string, xpAwarded: number) => void;
+  onChallengeDismiss?: () => void;
 }
 
 declare global {
@@ -60,23 +64,11 @@ interface SpeechRecognition extends EventTarget {
   onend: (() => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
 }
-interface SpeechRecognitionEvent {
-  results: SpeechRecognitionResultList;
-}
-interface SpeechRecognitionResultList {
-  [index: number]: SpeechRecognitionResult;
-  length: number;
-}
-interface SpeechRecognitionResult {
-  [index: number]: SpeechRecognitionAlternative;
-  isFinal: boolean;
-}
-interface SpeechRecognitionAlternative {
-  transcript: string;
-}
-interface SpeechRecognitionErrorEvent extends Event {
-  error: string;
-}
+interface SpeechRecognitionEvent { results: SpeechRecognitionResultList; }
+interface SpeechRecognitionResultList { [index: number]: SpeechRecognitionResult; length: number; }
+interface SpeechRecognitionResult { [index: number]: SpeechRecognitionAlternative; isFinal: boolean; }
+interface SpeechRecognitionAlternative { transcript: string; }
+interface SpeechRecognitionErrorEvent extends Event { error: string; }
 
 function formatReceiptSummary(r: ReceiptSummaryItem): string {
   const mins = Math.round(r.durationSeconds / 60);
@@ -93,6 +85,10 @@ export default function AuraChat({
   proactiveNudge,
   onNudgeClear,
   recentReceipts = [],
+  activeChallenge,
+  captureFrame,
+  onChallengeComplete,
+  onChallengeDismiss,
 }: AuraChatProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -103,8 +99,10 @@ export default function AuraChat({
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [isVisionLoading, setIsVisionLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [ttsEnabled, setTtsEnabled] = useState(false);
+  const [latestXP, setLatestXP] = useState<number | null>(null);
   const [speechSupported] = useState(
     () => !!(window.SpeechRecognition || window.webkitSpeechRecognition)
   );
@@ -148,9 +146,7 @@ export default function AuraChat({
         .slice(-9)
         .map((m) => ({ role: m.role, content: m.content }));
 
-      const summaries = recentReceipts
-        .slice(-3)
-        .map(formatReceiptSummary);
+      const summaries = recentReceipts.slice(-3).map(formatReceiptSummary);
 
       try {
         const req: AuraChatRequest = {
@@ -174,7 +170,7 @@ export default function AuraChat({
           ...prev,
           {
             role: 'assistant',
-            content: `Signal degraded. Biometrics intact: HRV ${bioContext.hrv}ms, Strain ${bioContext.strain}/21. Retry query.`,
+            content: `Connection hiccup! 💜 Your data is safe though — HRV ${bioContext.hrv}ms, Strain ${bioContext.strain}/21. Give it a moment and try again.`,
             fallback: true,
             timestamp: new Date(),
           },
@@ -186,22 +182,71 @@ export default function AuraChat({
     [bioContext, isLoading, messages, onInsightSigned, recentReceipts, speakText]
   );
 
-  // Auto-dispatch proactive nudge from Dashboard when it changes
+  const handleShowAura = useCallback(async () => {
+    if (!activeChallenge || !captureFrame || isVisionLoading) return;
+    const frame = captureFrame();
+    setIsVisionLoading(true);
+
+    const userMsg: Message = {
+      role: 'user',
+      content: `📸 [Showing AURA my camera for: ${activeChallenge.title}]`,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    try {
+      const result = await auraVision({
+        imageBase64: frame ?? '',
+        challengeType: activeChallenge.type,
+        bioContext: { hrv: bioContext.hrv, strain: bioContext.strain, apm: bioContext.apm },
+      });
+
+      const auraMsg: Message = {
+        role: 'assistant',
+        content: result.response,
+        fallback: result.fallback,
+        timestamp: new Date(),
+        xpAwarded: result.xpAwarded,
+      };
+      setMessages((prev) => [...prev, auraMsg]);
+      speakText(result.response);
+
+      if (result.challengeVerified) {
+        setLatestXP(result.xpAwarded);
+        setTimeout(() => setLatestXP(null), 3000);
+        onChallengeComplete?.(activeChallenge.id, result.xpAwarded);
+      }
+    } catch {
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: 'assistant',
+          content: `I couldn't quite see that, but I trust you! 💜 Challenge marked complete — +${activeChallenge.xpReward} XP for taking care of yourself!`,
+          fallback: true,
+          timestamp: new Date(),
+          xpAwarded: activeChallenge.xpReward,
+        },
+      ]);
+      onChallengeComplete?.(activeChallenge.id, activeChallenge.xpReward);
+      setLatestXP(activeChallenge.xpReward);
+      setTimeout(() => setLatestXP(null), 3000);
+    } finally {
+      setIsVisionLoading(false);
+    }
+  }, [activeChallenge, captureFrame, isVisionLoading, bioContext, speakText, onChallengeComplete]);
+
   useEffect(() => {
-    // When nudge clears, reset dedupe key so re-occurrence can fire again
     if (!proactiveNudge) {
       nudgeSentRef.current = null;
       return;
     }
     if (proactiveNudge === nudgeSentRef.current) return;
     nudgeSentRef.current = proactiveNudge;
-    // Small delay so the tab switch animation completes before sending
     const timer = setTimeout(() => {
       void sendMessage(proactiveNudge);
       onNudgeClear?.();
     }, 400);
     return () => clearTimeout(timer);
-    // sendMessage changes identity when messages/bioContext change; use a stable callback
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proactiveNudge]);
 
@@ -241,7 +286,70 @@ export default function AuraChat({
 
   return (
     <div className="flex flex-col h-full">
-      {/* Messages */}
+
+      {/* ── Active Challenge Banner ────────────────────────────────── */}
+      <AnimatePresence>
+        {activeChallenge && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.25 }}
+            className="overflow-hidden"
+          >
+            <div
+              className="px-4 py-3 flex items-start gap-3 relative"
+              style={{
+                background: 'linear-gradient(135deg, rgba(139,92,246,0.12) 0%, rgba(251,113,133,0.06) 100%)',
+                borderBottom: '1px solid rgba(139,92,246,0.22)',
+              }}
+            >
+              <span className="text-xl flex-shrink-0 mt-0.5">{activeChallenge.emoji}</span>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="font-pixel text-[7px] text-violet-400/90 uppercase tracking-wider">
+                    AURA CHALLENGE
+                  </span>
+                  <span className="font-pixel text-[6px] text-amber-400/80 border border-amber-400/30 px-1 rounded">
+                    +{activeChallenge.xpReward} XP
+                  </span>
+                </div>
+                <p className="font-terminal text-sm text-violet-100/80 leading-relaxed">
+                  {activeChallenge.nudgeMessage}
+                </p>
+              </div>
+              <button
+                onClick={onChallengeDismiss}
+                className="text-muted-foreground/40 hover:text-muted-foreground/70 transition-colors flex-shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── XP Earned Toast ───────────────────────────────────────── */}
+      <AnimatePresence>
+        {latestXP !== null && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.8, y: -10 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: -6 }}
+            className="absolute top-16 right-4 z-50 flex items-center gap-1.5 px-3 py-1.5 rounded-full"
+            style={{
+              background: 'linear-gradient(135deg, rgba(245,158,11,0.2) 0%, rgba(251,113,133,0.15) 100%)',
+              border: '1px solid rgba(245,158,11,0.4)',
+              boxShadow: '0 0 20px rgba(245,158,11,0.3)',
+            }}
+          >
+            <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+            <span className="font-pixel text-[8px] text-amber-300 font-bold">+{latestXP} XP!</span>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Messages ──────────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
         <AnimatePresence initial={false}>
           {messages.map((msg, i) => (
@@ -253,7 +361,6 @@ export default function AuraChat({
               className={cn('flex', msg.role === 'user' ? 'justify-end' : 'justify-start')}
             >
               {msg.role === 'assistant' ? (
-                /* AURA bubble — violet glow */
                 <div className="max-w-[82%] flex flex-col gap-1">
                   <div className="flex items-center gap-1.5 ml-1">
                     <span className="font-pixel text-[7px] text-violet-400/90">AURA</span>
@@ -261,6 +368,16 @@ export default function AuraChat({
                       <span className="font-pixel text-[6px] text-muted-foreground/40 border border-muted-foreground/20 px-1 rounded">
                         offline
                       </span>
+                    )}
+                    {msg.xpAwarded && (
+                      <motion.span
+                        initial={{ scale: 0 }}
+                        animate={{ scale: 1 }}
+                        className="font-pixel text-[6px] text-amber-400 border border-amber-400/30 px-1 rounded flex items-center gap-0.5"
+                      >
+                        <Star className="w-1.5 h-1.5 fill-amber-400" />
+                        +{msg.xpAwarded} XP
+                      </motion.span>
                     )}
                   </div>
                   <div
@@ -279,7 +396,6 @@ export default function AuraChat({
                   </span>
                 </div>
               ) : (
-                /* User bubble — rose glow */
                 <div className="max-w-[82%] flex flex-col gap-1 items-end">
                   <div
                     className="px-4 py-2.5 rounded-2xl rounded-tr-sm text-sm leading-relaxed break-words"
@@ -301,7 +417,7 @@ export default function AuraChat({
           ))}
         </AnimatePresence>
 
-        {isLoading && (
+        {(isLoading || isVisionLoading) && (
           <motion.div
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
@@ -315,7 +431,9 @@ export default function AuraChat({
               }}
             >
               <Loader2 className="w-3.5 h-3.5 text-violet-400 animate-spin" />
-              <span className="font-terminal text-sm text-violet-300/70">AURA is thinking…</span>
+              <span className="font-terminal text-sm text-violet-300/70">
+                {isVisionLoading ? 'AURA is looking…' : 'AURA is thinking…'}
+              </span>
             </div>
           </motion.div>
         )}
@@ -323,7 +441,7 @@ export default function AuraChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Live bio-context bar */}
+      {/* ── Live bio-context bar ──────────────────────────────────── */}
       <div
         className="px-4 py-2 flex items-center gap-3 flex-wrap backdrop-blur-xl"
         style={{
@@ -346,11 +464,39 @@ export default function AuraChat({
         )}
       </div>
 
-      {/* Input */}
+      {/* ── Input row ─────────────────────────────────────────────── */}
       <div
         className="p-3 flex gap-2 items-center"
         style={{ borderTop: '1px solid rgba(139,92,246,0.12)' }}
       >
+        {/* Camera / Show AURA button — visible when vision challenge is active */}
+        <AnimatePresence>
+          {activeChallenge && activeChallenge.verificationMethod === 'vision' && captureFrame && (
+            <motion.button
+              initial={{ opacity: 0, scale: 0.8, width: 0 }}
+              animate={{ opacity: 1, scale: 1, width: 'auto' }}
+              exit={{ opacity: 0, scale: 0.8, width: 0 }}
+              onClick={() => void handleShowAura()}
+              disabled={isVisionLoading}
+              className={cn(
+                'p-2.5 rounded-xl border flex items-center gap-1.5 transition-all cursor-pointer flex-shrink-0',
+                'border-violet-400/60 text-violet-300 bg-violet-500/12',
+                'hover:bg-violet-500/22 hover:shadow-[0_0_14px_rgba(139,92,246,0.35)]',
+                'disabled:opacity-40 disabled:cursor-not-allowed'
+              )}
+              title="Show AURA your camera to verify challenge"
+            >
+              {isVisionLoading
+                ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <Camera className="w-4 h-4" />
+              }
+              <span className="font-terminal text-sm font-medium whitespace-nowrap pr-1">
+                Show AURA
+              </span>
+            </motion.button>
+          )}
+        </AnimatePresence>
+
         <input
           type="text"
           value={input}

@@ -19,11 +19,13 @@ import {
   ChevronDown,
   ChevronUp,
   Package,
+  Star,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
 import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
+import { useWellnessCoach } from '@/hooks/use-wellness-coach';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
@@ -265,6 +267,41 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       physicalIntegrityRef.current = true;
     }
   }, [isSessionActive]);
+
+  // Wellness coach
+  const handleWellnessChallenge = useCallback(() => {
+    setRightTab('chat');
+  }, []);
+
+  const wellnessCoach = useWellnessCoach({
+    isSessionActive,
+    sessionSeconds: POMODORO_TIME - timeLeft,
+    postureWarning: camera.postureWarning,
+    faceDetected: camera.faceDetected,
+    apm,
+    hrv,
+    onChallenge: handleWellnessChallenge,
+  });
+
+  // Sign and file a wellness receipt when a challenge is completed
+  const signWellnessReceipt = useCallback(async (challengeType: string, xpAwarded: number) => {
+    const stats = { durationSeconds: 0, apm, hrv, strain, focusScore: Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60)) };
+    const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined, 'wellness');
+    createReceiptMutation.mutate(
+      {
+        data: {
+          nullifierHash,
+          sessionStats: stats,
+          companionSignature: signed.companionSignature,
+          isDemo: false,
+          physicalIntegrity: camera.faceDetected,
+          receiptType: 'insight',
+          insightText: `[WELLNESS +${xpAwarded}XP] ${challengeType} challenge completed`,
+        },
+      },
+      { onSuccess: () => refetchReceipts() }
+    );
+  }, [apm, hrv, strain, nullifierHash, camera.faceDetected, createReceiptMutation, refetchReceipts]);
 
   // Advance demo phase tooltip based on time remaining
   useEffect(() => {
@@ -567,17 +604,31 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="text-yellow-500/70 ml-1">· DEMO</span>
               )}
             </div>
-            {/* AURA-AGENT-V1 Identity Badge */}
-            <motion.div
-              className="flex items-center gap-1.5 mt-2 px-3 py-1 border border-violet-400/30 bg-violet-500/8 rounded-full w-fit"
-              animate={{ borderColor: ['rgba(139,92,246,0.3)', 'rgba(139,92,246,0.6)', 'rgba(139,92,246,0.3)'] }}
-              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-            >
-              <Package className="w-2.5 h-2.5 text-violet-400" />
-              <span className="font-pixel text-[7px] text-violet-300 tracking-widest">AURA-AGENT-V1</span>
-              <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
-              <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
-            </motion.div>
+            {/* AURA-AGENT-V1 Identity Badge + XP pill */}
+            <div className="flex items-center gap-2 mt-2 flex-wrap">
+              <motion.div
+                className="flex items-center gap-1.5 px-3 py-1 border border-violet-400/30 bg-violet-500/8 rounded-full w-fit"
+                animate={{ borderColor: ['rgba(139,92,246,0.3)', 'rgba(139,92,246,0.6)', 'rgba(139,92,246,0.3)'] }}
+                transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+              >
+                <Package className="w-2.5 h-2.5 text-violet-400" />
+                <span className="font-pixel text-[7px] text-violet-300 tracking-widest">AURA-AGENT-V1</span>
+                <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
+              </motion.div>
+              {wellnessCoach.totalXP > 0 && (
+                <motion.div
+                  key={wellnessCoach.totalXP}
+                  initial={{ scale: 1.25 }}
+                  animate={{ scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 400, damping: 18 }}
+                  className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-500/10"
+                >
+                  <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
+                  <span className="font-pixel text-[7px] text-amber-300">{wellnessCoach.totalXP} XP</span>
+                </motion.div>
+              )}
+            </div>
           </div>
           <button
             onClick={onLogout}
@@ -888,7 +939,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                     <ReceiptChainCard
                       key={receipt.id}
                       receipt={receipt}
-                      isDemo={receipt.isDemo ?? false}
                       index={i}
                     />
                   ))
@@ -934,6 +984,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 createdAt: r.createdAt,
                 insightText: r.insightText,
               }))}
+              activeChallenge={wellnessCoach.activeChallenge}
+              captureFrame={camera.captureFrame}
+              onChallengeComplete={(challengeId, xpAwarded) => {
+                const challenge = wellnessCoach.activeChallenge;
+                wellnessCoach.completeChallenge(challengeId, xpAwarded);
+                if (challenge) {
+                  void signWellnessReceipt(challenge.type, xpAwarded);
+                }
+              }}
+              onChallengeDismiss={wellnessCoach.dismissChallenge}
             />
           )}
         </div>

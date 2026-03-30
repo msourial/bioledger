@@ -83,7 +83,7 @@ export async function signWorkReceipt(
   stats: SessionStats,
   prevStrain = 0,
   vision?: VisionMetrics,
-  receiptType: 'sustainable-flow-session' | 'aura-insight' = 'sustainable-flow-session'
+  receiptType: 'sustainable-flow-session' | 'aura-insight' | 'wellness' = 'sustainable-flow-session'
 ): Promise<WorkReceiptPayload> {
   const timestamp = new Date().toISOString();
 
