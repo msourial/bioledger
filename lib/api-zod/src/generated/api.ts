@@ -138,7 +138,7 @@ export const AuraChatBody = zod.object({
       sessionDurationSeconds: zod.number(),
       hourOfDay: zod.number(),
       sessionMinutes: zod.number().optional().describe("Elapsed session minutes"),
-      completedChallenges: zod.number().optional().describe("Number of wellness challenges completed today"),
+      completedChallenges: zod.array(zod.string()).optional().describe("Types of wellness challenges completed this session"),
     })
     .describe("Live biometric snapshot sent with each AURA chat request"),
   history: zod

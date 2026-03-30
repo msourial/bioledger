@@ -123,8 +123,8 @@ export interface AuraBioContext {
   hourOfDay: number;
   /** Elapsed session minutes */
   sessionMinutes?: number;
-  /** Number of wellness challenges completed today */
-  completedChallenges?: number;
+  /** Types of wellness challenges completed this session */
+  completedChallenges?: string[];
 }
 
 export type AuraChatMessageRole =

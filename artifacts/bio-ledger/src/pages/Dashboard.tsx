@@ -270,21 +270,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     }
   }, [isSessionActive]);
 
-  // Wellness coach
-  const handleWellnessChallenge = useCallback((challenge: WellnessChallenge) => {
-    setRightTab('chat');
-    setChallengeNudge(challenge.nudgeMessage);
-  }, []);
-
-  const wellnessCoach = useWellnessCoach({
-    isSessionActive,
-    postureWarning: camera.postureWarning,
-    faceDetected: camera.faceDetected,
-    apm,
-    hrv,
-    onChallenge: handleWellnessChallenge,
-  });
-
   // Sign and file a wellness receipt through the full sign + Filecoin pipeline
   const signWellnessReceipt = useCallback(async (challengeType: string, xpAwarded: number) => {
     const stats = { durationSeconds: 0, apm, hrv, strain, focusScore: Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60)) };
@@ -307,6 +292,26 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       { onSuccess: () => refetchReceipts() }
     );
   }, [apm, hrv, strain, nullifierHash, camera.faceDetected, createReceiptMutation, refetchReceipts]);
+
+  // Wellness coach callbacks — defined after signWellnessReceipt to avoid forward-ref issues
+  const handleWellnessChallenge = useCallback((challenge: WellnessChallenge) => {
+    setRightTab('chat');
+    setChallengeNudge(challenge.nudgeMessage);
+  }, []);
+
+  const handleWellnessComplete = useCallback((challenge: WellnessChallenge, xpAwarded: number) => {
+    void signWellnessReceipt(challenge.type, xpAwarded);
+  }, [signWellnessReceipt]);
+
+  const wellnessCoach = useWellnessCoach({
+    isSessionActive,
+    postureWarning: camera.postureWarning,
+    faceDetected: camera.faceDetected,
+    apm,
+    hrv,
+    onChallenge: handleWellnessChallenge,
+    onComplete: handleWellnessComplete,
+  });
 
   // Advance demo phase tooltip based on time remaining
   useEffect(() => {
@@ -609,7 +614,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="text-yellow-500/70 ml-1">· DEMO</span>
               )}
             </div>
-            {/* AURA-AGENT-V1 Identity Badge + XP pill */}
+            {/* AURA-AGENT-V1 Identity Badge */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <motion.div
                 className="flex items-center gap-1.5 px-3 py-1 border border-violet-400/30 bg-violet-500/8 rounded-full w-fit"
@@ -621,19 +626,41 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
                 <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
               </motion.div>
-              {wellnessCoach.totalXP > 0 && (
-                <motion.div
-                  key={wellnessCoach.totalXP}
-                  initial={{ scale: 1.25 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 400, damping: 18 }}
-                  className="flex items-center gap-1 px-2 py-0.5 rounded-full border border-amber-400/30 bg-amber-500/10"
-                >
-                  <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
-                  <span className="font-pixel text-[7px] text-amber-300">{wellnessCoach.totalXP} XP</span>
-                </motion.div>
-              )}
             </div>
+            {/* Wellness XP progress bar — always visible in header */}
+            {(() => {
+              const xp = wellnessCoach.totalXP;
+              const level = Math.floor(xp / 100);
+              const progress = xp % 100;
+              return (
+                <div className="mt-2 flex items-center gap-2">
+                  <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400 flex-shrink-0" />
+                  <div className="flex-1 flex items-center gap-1.5">
+                    <div className="relative flex-1 h-1.5 bg-white/8 rounded-full overflow-hidden">
+                      <motion.div
+                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-300"
+                        animate={{ width: `${progress}%` }}
+                        transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                      />
+                    </div>
+                    <motion.span
+                      key={xp}
+                      initial={{ scale: 1.3, color: '#fcd34d' }}
+                      animate={{ scale: 1, color: '#d97706' }}
+                      transition={{ duration: 0.4 }}
+                      className="font-pixel text-[7px] text-amber-600 tabular-nums w-12 text-right"
+                    >
+                      {xp} XP
+                    </motion.span>
+                  </div>
+                  {level > 0 && (
+                    <span className="font-pixel text-[6px] text-amber-400/70 border border-amber-400/30 px-1 py-px rounded-sm">
+                      LVL {level}
+                    </span>
+                  )}
+                </div>
+              );
+            })()}
           </div>
           <button
             onClick={onLogout}
@@ -976,7 +1003,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 sessionDurationSeconds: POMODORO_TIME - timeLeft,
                 hourOfDay: new Date().getHours(),
                 sessionMinutes: Math.round((POMODORO_TIME - timeLeft) / 60),
-                completedChallenges: wellnessCoach.completedChallenges.length,
+                completedChallenges: wellnessCoach.completedChallenges.map((c) => c.challenge.type),
               }}
               nullifierHash={nullifierHash}
               onInsightSigned={(text) => void signInsightReceipt(text)}
@@ -996,11 +1023,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               activeChallenge={wellnessCoach.activeChallenge}
               captureFrame={camera.captureFrame}
               onChallengeComplete={(challengeId, xpAwarded) => {
-                const challenge = wellnessCoach.activeChallenge;
+                // Receipt signing is handled centrally by useWellnessCoach onComplete
                 wellnessCoach.completeChallenge(challengeId, xpAwarded);
-                if (challenge) {
-                  void signWellnessReceipt(challenge.type, xpAwarded);
-                }
               }}
               onChallengeDismiss={wellnessCoach.dismissChallenge}
             />

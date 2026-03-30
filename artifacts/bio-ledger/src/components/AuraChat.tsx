@@ -15,7 +15,7 @@ export interface AuraBioContext {
   sessionDurationSeconds: number;
   hourOfDay: number;
   sessionMinutes?: number;
-  completedChallenges?: number;
+  completedChallenges?: string[];
 }
 
 export interface ReceiptSummaryItem {

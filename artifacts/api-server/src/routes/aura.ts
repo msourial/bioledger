@@ -19,7 +19,7 @@ type BioContext = {
   sessionDurationSeconds: number;
   hourOfDay: number;
   sessionMinutes?: number;
-  completedChallenges?: number;
+  completedChallenges?: string[];
 };
 
 type MiniBioContext = {
@@ -37,8 +37,8 @@ function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): 
   const sessionStatus = bio.isSessionActive
     ? `Active session — ${sessionMins} minute${sessionMins === 1 ? "" : "s"} elapsed`
     : "No active session";
-  const challengeStatus = bio.completedChallenges != null && bio.completedChallenges > 0
-    ? `\n- Wellness Challenges Today: ${bio.completedChallenges} completed 🌿`
+  const challengeStatus = bio.completedChallenges && bio.completedChallenges.length > 0
+    ? `\n- Wellness Challenges Completed: ${bio.completedChallenges.join(', ')} (${bio.completedChallenges.length} total) 🌿`
     : "";
 
   const recentHistory = recentReceiptSummaries && recentReceiptSummaries.length > 0

@@ -22,14 +22,6 @@ export interface WellnessChallenge {
   emoji: string;
 }
 
-export interface WellnessCoachState {
-  activeChallenge: WellnessChallenge | null;
-  completedChallenges: CompletedChallenge[];
-  totalXP: number;
-  dismissChallenge: () => void;
-  completeChallenge: (id: string, xpOverride?: number) => void;
-}
-
 export interface CompletedChallenge {
   challenge: WellnessChallenge;
   xpAwarded: number;
@@ -66,7 +58,7 @@ const CHALLENGE_TEMPLATES: Record<WellnessChallengeType, Omit<WellnessChallenge,
   'typing-break': {
     type: 'typing-break',
     title: 'Typing Break',
-    nudgeMessage: "⌨️ You've been typing for over 60 minutes! AURA says — step away from the keyboard for at least 30 seconds. I'll automatically reward you when your APM drops!",
+    nudgeMessage: "⌨️ You've been typing intensely for over 60 minutes! AURA says — step away from the keyboard for at least 30 seconds. I'll automatically reward you when your APM drops!",
     verificationMethod: 'behavioral',
     xpReward: 25,
     emoji: '⌨️',
@@ -91,20 +83,12 @@ const CHALLENGE_TEMPLATES: Record<WellnessChallengeType, Omit<WellnessChallenge,
 
 // Cooldowns in ms (how long before AURA can re-issue the same challenge)
 const COOLDOWNS: Record<WellnessChallengeType, number> = {
-  hydration: 30 * 60_000,      // 30 min
-  posture: 20 * 60_000,        // 20 min
-  'eye-break': 40 * 60_000,    // 40 min
-  'typing-break': 60 * 60_000, // 60 min
-  breath: 25 * 60_000,         // 25 min
-  movement: 90 * 60_000,       // 90 min
-};
-
-// Trigger thresholds in seconds (cumulative active session time)
-const TRIGGER_SECONDS: Partial<Record<WellnessChallengeType, number>> = {
-  hydration: 30 * 60,      // 30 min
-  'eye-break': 40 * 60,    // 40 min
-  'typing-break': 60 * 60, // 60 min — proactive nudge
-  movement: 90 * 60,       // 90 min
+  hydration: 30 * 60_000,
+  posture: 20 * 60_000,
+  'eye-break': 40 * 60_000,
+  'typing-break': 60 * 60_000,
+  breath: 25 * 60_000,
+  movement: 90 * 60_000,
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -117,6 +101,16 @@ interface WellnessCoachInput {
   hrv: number;
   /** Called when AURA issues a new wellness challenge */
   onChallenge: (challenge: WellnessChallenge) => void;
+  /** Called when ANY challenge is completed (all paths: manual, vision, behavioral) */
+  onComplete?: (challenge: WellnessChallenge, xpAwarded: number) => void;
+}
+
+export interface WellnessCoachState {
+  activeChallenge: WellnessChallenge | null;
+  completedChallenges: CompletedChallenge[];
+  totalXP: number;
+  dismissChallenge: () => void;
+  completeChallenge: (id: string, xpOverride?: number) => void;
 }
 
 export function useWellnessCoach({
@@ -126,18 +120,33 @@ export function useWellnessCoach({
   apm,
   hrv,
   onChallenge,
+  onComplete,
 }: WellnessCoachInput): WellnessCoachState {
   const [activeChallenge, setActiveChallenge] = useState<WellnessChallenge | null>(null);
   const [completedChallenges, setCompletedChallenges] = useState<CompletedChallenge[]>([]);
   const [totalXP, setTotalXP] = useState(0);
 
-  // ── Cumulative active session seconds (persists across Pomodoro resets) ──
-  const [cumulativeSeconds, setCumulativeSeconds] = useState(0);
+  // pendingCompletion drives side-effects after completeChallenge so we avoid
+  // calling onComplete inside a setState updater (which React may call twice in StrictMode)
+  const [pendingCompletion, setPendingCompletion] = useState<{ challenge: WellnessChallenge; xp: number } | null>(null);
 
+  // ── Cumulative active-session seconds (persists across Pomodoro resets) ──
+  const [cumulativeSeconds, setCumulativeSeconds] = useState(0);
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const interval = setInterval(() => setCumulativeSeconds((s) => s + 1), 1000);
+    return () => clearInterval(interval);
+  }, [isSessionActive]);
+
+  // ── High-APM seconds (sustained typing load counter) ─────────────────────
+  // Accumulates every second where APM ≥ 30, regardless of whether APM just changed
+  const [highApmSeconds, setHighApmSeconds] = useState(0);
+  const apmRef = useRef(apm);
+  apmRef.current = apm;
   useEffect(() => {
     if (!isSessionActive) return;
     const interval = setInterval(() => {
-      setCumulativeSeconds((s) => s + 1);
+      if (apmRef.current >= 30) setHighApmSeconds((s) => s + 1);
     }, 1000);
     return () => clearInterval(interval);
   }, [isSessionActive]);
@@ -149,8 +158,6 @@ export function useWellnessCoach({
   const absenceStartRef = useRef<number | null>(null);
   const wasAbsentRef = useRef(false);
   const postureStartRef = useRef<number | null>(null);
-
-  // Ref that always reflects the latest activeChallenge for effects
   const activeChallengeRef = useRef<WellnessChallenge | null>(null);
   activeChallengeRef.current = activeChallenge;
 
@@ -163,9 +170,8 @@ export function useWellnessCoach({
 
   const issueChallenge = useCallback((type: WellnessChallengeType) => {
     if (!canIssue(type)) return;
-    const template = CHALLENGE_TEMPLATES[type];
     const challenge: WellnessChallenge = {
-      ...template,
+      ...CHALLENGE_TEMPLATES[type],
       id: `${type}-${Date.now()}`,
     };
     lastIssuedRef.current[type] = Date.now();
@@ -173,24 +179,34 @@ export function useWellnessCoach({
     onChallenge(challenge);
   }, [canIssue, onChallenge]);
 
+  // ── completeChallenge: enqueues pendingCompletion (avoids side effects in setter) ──
   const completeChallenge = useCallback((id: string, xpOverride?: number) => {
     setActiveChallenge((current) => {
       if (!current || current.id !== id) return current;
       const xp = xpOverride ?? current.xpReward;
-      setCompletedChallenges((prev) => [
-        ...prev,
-        { challenge: current, xpAwarded: xp, completedAt: new Date() },
-      ]);
-      setTotalXP((prev) => prev + xp);
+      setPendingCompletion({ challenge: current, xp });
       return null;
     });
   }, []);
+
+  // ── Flush pendingCompletion: update completed list + totalXP + call onComplete ──
+  useEffect(() => {
+    if (!pendingCompletion) return;
+    const { challenge, xp } = pendingCompletion;
+    setPendingCompletion(null);
+    setCompletedChallenges((prev) => [
+      ...prev,
+      { challenge, xpAwarded: xp, completedAt: new Date() },
+    ]);
+    setTotalXP((prev) => prev + xp);
+    onComplete?.(challenge, xp);
+  }, [pendingCompletion, onComplete]);
 
   const dismissChallenge = useCallback(() => {
     setActiveChallenge(null);
   }, []);
 
-  // ── Session start: capture HRV baseline ─────────────────────────────────
+  // ── HRV baseline capture + session reset ───────────────────────────────────
   useEffect(() => {
     if (isSessionActive && baselineHrvRef.current === null) {
       baselineHrvRef.current = hrv;
@@ -199,7 +215,7 @@ export function useWellnessCoach({
       baselineHrvRef.current = null;
       apmDropStartRef.current = null;
       postureStartRef.current = null;
-      // Preserve absence refs only if an absence-based behavioral challenge is active
+      // Preserve absence refs if a behavioral absence-based challenge is active
       const challenge = activeChallengeRef.current;
       const hasAbsenceChallenge = challenge?.type === 'movement' || challenge?.type === 'eye-break';
       if (!hasAbsenceChallenge) {
@@ -209,58 +225,42 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, hrv]);
 
-  // ── Time-based triggers (cumulative session seconds) ────────────────────
-  // Fire once when threshold is crossed; cooldown prevents repeat within period
-
-  // Hydration: every 30 min
+  // ── Hydration: every 30 min of cumulative session ───────────────────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const elapsed = cumulativeSeconds;
-    const threshold = TRIGGER_SECONDS.hydration!;
-    if (elapsed >= threshold && elapsed % threshold < 2) {
-      issueChallenge('hydration');
-    }
+    const t = 30 * 60;
+    if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('hydration');
   }, [isSessionActive, cumulativeSeconds, issueChallenge]);
 
-  // Eye-break: every 40 min
+  // ── Eye-break: every 40 min of cumulative session ───────────────────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const elapsed = cumulativeSeconds;
-    const threshold = TRIGGER_SECONDS['eye-break']!;
-    if (elapsed >= threshold && elapsed % threshold < 2) {
-      issueChallenge('eye-break');
-    }
+    const t = 40 * 60;
+    if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('eye-break');
   }, [isSessionActive, cumulativeSeconds, issueChallenge]);
 
-  // Typing-break: PROACTIVELY at 60+ min of cumulative session (user still working)
+  // ── Typing-break: PROACTIVE after 60 min of sustained high APM (≥30 apm) ──
+  // Trigger fires while user is still typing, before they stop; APM drop verifies the break
   useEffect(() => {
     if (!isSessionActive) return;
-    const elapsed = cumulativeSeconds;
-    const threshold = TRIGGER_SECONDS['typing-break']!;
-    if (elapsed >= threshold && elapsed % threshold < 2) {
-      issueChallenge('typing-break');
-    }
-  }, [isSessionActive, cumulativeSeconds, issueChallenge]);
+    const t = 60 * 60;
+    if (highApmSeconds >= t && highApmSeconds % t < 2) issueChallenge('typing-break');
+  }, [isSessionActive, highApmSeconds, issueChallenge]);
 
-  // Movement: every 90 min
+  // ── Movement: every 90 min of cumulative session ────────────────────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const elapsed = cumulativeSeconds;
-    const threshold = TRIGGER_SECONDS.movement!;
-    if (elapsed >= threshold && elapsed % threshold < 2) {
-      issueChallenge('movement');
-    }
+    const t = 90 * 60;
+    if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('movement');
   }, [isSessionActive, cumulativeSeconds, issueChallenge]);
 
-  // ── Posture: after 3 min sustained posture warning ───────────────────────
+  // ── Posture: after 3 min of sustained bad posture ──────────────────────────
   useEffect(() => {
     if (!isSessionActive || !postureWarning) {
       postureStartRef.current = null;
       return;
     }
-    if (postureStartRef.current === null) {
-      postureStartRef.current = Date.now();
-    }
+    if (postureStartRef.current === null) postureStartRef.current = Date.now();
     const elapsed = (Date.now() - postureStartRef.current) / 1000;
     if (elapsed >= 180) {
       issueChallenge('posture');
@@ -268,18 +268,18 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, postureWarning, cumulativeSeconds, issueChallenge]);
 
-  // ── Breath: HRV drops ≥10% from session baseline ─────────────────────────
+  // ── Breath: HRV drops ≥10% from session baseline ──────────────────────────
   useEffect(() => {
     if (!isSessionActive || baselineHrvRef.current === null) return;
     const baseline = baselineHrvRef.current;
     const drop = ((baseline - hrv) / baseline) * 100;
     if (drop >= 10) {
       issueChallenge('breath');
-      baselineHrvRef.current = hrv; // Reset baseline so we don't spam
+      baselineHrvRef.current = hrv;
     }
   }, [isSessionActive, hrv, issueChallenge]);
 
-  // ── Behavioral: typing-break auto-complete — near-zero APM for 30s ───────
+  // ── Behavioral auto-verify: typing-break — near-zero APM for 30s ───────────
   useEffect(() => {
     const challenge = activeChallengeRef.current;
     if (!challenge || challenge.type !== 'typing-break') {
@@ -294,18 +294,16 @@ export function useWellnessCoach({
         apmDropStartRef.current = null;
       }
     } else {
-      apmDropStartRef.current = null; // Reset if typing resumes
+      apmDropStartRef.current = null; // Typing resumed — reset
     }
   }, [apm, completeChallenge]);
 
-  // ── Behavioral: movement (≥2 min absence) and eye-break (≥20s absence) ───
-  // Absence refs are preserved during these challenges even if session pauses
+  // ── Behavioral auto-verify: movement (≥2 min away) / eye-break (≥20s away) ─
+  // Works even when session pauses (absence refs preserved above)
   useEffect(() => {
     const challenge = activeChallengeRef.current;
-    if (!challenge || (challenge.type !== 'movement' && challenge.type !== 'eye-break')) {
-      return;
-    }
-    const absenceThreshold = challenge.type === 'movement' ? 120 : 20; // seconds
+    if (!challenge || (challenge.type !== 'movement' && challenge.type !== 'eye-break')) return;
+    const absenceThreshold = challenge.type === 'movement' ? 120 : 20;
 
     if (!faceDetected) {
       if (!wasAbsentRef.current) {
@@ -313,12 +311,12 @@ export function useWellnessCoach({
         absenceStartRef.current = Date.now();
       }
     } else if (wasAbsentRef.current) {
-      const absenceDuration = absenceStartRef.current
+      const absent = absenceStartRef.current
         ? (Date.now() - absenceStartRef.current) / 1000
         : 0;
       wasAbsentRef.current = false;
       absenceStartRef.current = null;
-      if (absenceDuration >= absenceThreshold) {
+      if (absent >= absenceThreshold) {
         completeChallenge(challenge.id, challenge.xpReward);
       }
     }
