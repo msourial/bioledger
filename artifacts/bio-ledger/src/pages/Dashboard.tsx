@@ -278,7 +278,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const wellnessCoach = useWellnessCoach({
     isSessionActive,
-    sessionSeconds: POMODORO_TIME - timeLeft,
     postureWarning: camera.postureWarning,
     faceDetected: camera.faceDetected,
     apm,

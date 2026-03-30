@@ -340,7 +340,15 @@ router.post("/aura/vision", async (req, res) => {
   const bio: MiniBioContext = bioContext ?? { hrv: 65, strain: 8, apm: 45 };
   const apiKey = process.env.GEMINI_API_KEY;
 
-  if (!apiKey || !imageBase64) {
+  if (!imageBase64) {
+    // No frame provided — cannot verify vision challenge
+    const fallback = visionFallback(challenge, bio);
+    res.json({ response: fallback.text, xpAwarded: 0, challengeVerified: false, fallback: true });
+    return;
+  }
+
+  if (!apiKey) {
+    // Frame provided but no Gemini key — trust the user and award XP with warm fallback
     const fallback = visionFallback(challenge, bio);
     res.json({ response: fallback.text, xpAwarded: fallback.xp, challengeVerified: true, fallback: true });
     return;
