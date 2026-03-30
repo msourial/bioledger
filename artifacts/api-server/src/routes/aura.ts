@@ -336,6 +336,20 @@ router.post("/aura/vision", async (req, res) => {
     bioContext?: MiniBioContext;
   };
 
+  // Guard: reject oversized image payloads (base64 of 5MB ≈ ~6.8M chars)
+  const MAX_IMAGE_CHARS = 7_000_000;
+  if (imageBase64 && imageBase64.length > MAX_IMAGE_CHARS) {
+    res.status(413).json({ error: "Image payload too large (max ~5MB)" });
+    return;
+  }
+
+  // Guard: validate mimeType is an image
+  const ALLOWED_MIMES = ["image/jpeg", "image/png", "image/webp"];
+  if (imageBase64 && !ALLOWED_MIMES.includes(mimeType)) {
+    res.status(400).json({ error: "Unsupported mimeType. Use image/jpeg, image/png, or image/webp." });
+    return;
+  }
+
   const challenge = challengeType ?? "hydration";
   const bio: MiniBioContext = bioContext ?? { hrv: 65, strain: 8, apm: 45 };
   const apiKey = process.env.GEMINI_API_KEY;
