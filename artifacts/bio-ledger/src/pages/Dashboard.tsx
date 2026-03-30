@@ -426,10 +426,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   return (
     <motion.div
       className="min-h-screen w-full flex flex-col md:flex-row overflow-hidden text-foreground relative"
-      style={{ background: 'linear-gradient(135deg, #180F3A 0%, #231455 40%, #2B1C5C 100%)' }}
+      style={{ background: '#0F172A' }}
       animate={isSessionActive ? { scale: [1, 1.015, 1] } : { scale: 1 }}
       transition={isSessionActive ? { duration: 0.6, ease: 'easeInOut' } : { duration: 0.3 }}
     >
+      {/* Aurora mesh — three blurred circles behind all content */}
+      <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
+        <div className="aurora-blob aurora-blob-1" />
+        <div className="aurora-blob aurora-blob-2" />
+        <div className="aurora-blob aurora-blob-3" />
+      </div>
+
       {/* Global scanline overlay */}
       <div className="scanlines-overlay" />
 
@@ -579,18 +586,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           boxShadow: `inset -1px 0 0 0 ${
             isInterrupted || presenceLost ? '#ef444440' : hrvBorderColor + '40'
           }`,
-          background: 'linear-gradient(160deg, rgba(24, 15, 58, 0.42) 0%, rgba(20, 12, 48, 0.55) 100%)',
+          background: 'rgba(255, 255, 255, 0.03)',
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
         transition={{ duration: 1.5, ease: 'easeInOut' }}
       >
-        {/* Aurora blobs behind content — warm coral/peach/mint */}
-        <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
-          <div className="aurora-blob aurora-blob-1" />
-          <div className="aurora-blob aurora-blob-2" />
-          <div className="aurora-blob aurora-blob-3" />
-        </div>
-
         {/* Header */}
         <div className="relative z-10 p-4 sm:p-6 flex justify-between items-start">
           <div>
@@ -793,7 +793,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       <motion.div
         className="w-full md:w-1/2 h-[50vh] md:h-screen flex flex-col backdrop-blur-xl border-l"
         style={{
-          background: 'linear-gradient(160deg, rgba(20, 14, 50, 0.45) 0%, rgba(26, 16, 60, 0.58) 100%)',
+          background: 'rgba(255, 255, 255, 0.03)',
           borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor,
         }}
         animate={{ borderColor: isInterrupted || presenceLost ? '#ef4444' : hrvBorderColor }}
@@ -885,13 +885,21 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             ) : (
               <motion.div key="controls" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-2">
                 {/* Main session button — only shown when not in demo mode */}
-                {!isDemoMode && (
+                {!isDemoMode && !isSessionActive && (
+                  <button
+                    onClick={toggleTimer}
+                    className="w-full py-4 rounded-full bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-900 font-bold text-lg font-terminal tracking-wide shadow-lg hover:shadow-teal-400/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-200 cursor-pointer"
+                  >
+                    ENGAGE FLOW
+                  </button>
+                )}
+                {!isDemoMode && isSessionActive && (
                   <PixelButton
                     onClick={toggleTimer}
-                    variant={isSessionActive ? 'danger' : 'primary'}
+                    variant="danger"
                     className="w-full text-lg"
                   >
-                    {isSessionActive ? 'ABORT FLOW' : 'ENGAGE FLOW'}
+                    ABORT FLOW
                   </PixelButton>
                 )}
 

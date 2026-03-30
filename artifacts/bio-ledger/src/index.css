@@ -49,8 +49,7 @@
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;
-    background: linear-gradient(135deg, #180F3A 0%, #231455 35%, #2B1C5C 65%, #1C1048 100%);
-    background-attachment: fixed;
+    background: #0F172A;
     font-family: 'Inter', 'JetBrains Mono', sans-serif;
     font-size: 14px;
   }
@@ -74,37 +73,38 @@
 .aurora-blob {
   position: absolute;
   border-radius: 50%;
-  filter: blur(90px);
-  opacity: 0.32;
+  filter: blur(64px);
 }
 
+/* Circle 1 — rose-500/20 — top left */
 .aurora-blob-1 {
-  width: 700px;
-  height: 700px;
-  background: radial-gradient(circle, #FF7F50 0%, #FF9F7F 40%, transparent 70%);
-  top: -15%;
-  left: -15%;
+  width: 384px;
+  height: 384px;
+  background: rgba(244, 63, 94, 0.20);
+  top: -96px;
+  left: -96px;
   animation: aurora-drift-1 18s ease-in-out infinite;
 }
 
+/* Circle 2 — indigo-500/20 — bottom right */
 .aurora-blob-2 {
-  width: 600px;
-  height: 600px;
-  background: radial-gradient(circle, #FFCBA0 0%, #FFD5B0 40%, transparent 70%);
-  bottom: -10%;
-  right: -10%;
+  width: 384px;
+  height: 384px;
+  background: rgba(99, 102, 241, 0.20);
+  bottom: -96px;
+  right: -96px;
   animation: aurora-drift-2 22s ease-in-out infinite;
-  opacity: 0.28;
 }
 
+/* Circle 3 — teal-400/10 — center */
 .aurora-blob-3 {
-  width: 500px;
-  height: 500px;
-  background: radial-gradient(circle, #98FB98 0%, #A8FBA8 40%, transparent 70%);
-  top: 35%;
-  left: 25%;
+  width: 256px;
+  height: 256px;
+  background: rgba(45, 212, 191, 0.10);
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   animation: aurora-drift-3 26s ease-in-out infinite;
-  opacity: 0.20;
 }
 
 @keyframes aurora-drift-1 {
@@ -129,19 +129,23 @@
    Warm bg colors bleed through the translucent surface
 ────────────────────────────────────────────────────────── */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.07);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(24px) saturate(180%);
+  -webkit-backdrop-filter: blur(24px) saturate(180%);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  overflow: hidden;
 }
 
 .glass-panel-strong {
-  background: rgba(255, 255, 255, 0.10);
-  backdrop-filter: blur(36px);
-  -webkit-backdrop-filter: blur(36px);
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(36px) saturate(200%);
+  -webkit-backdrop-filter: blur(36px) saturate(200%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.40), inset 0 1px 0 rgba(255, 255, 255, 0.10);
+  border-radius: 24px;
+  overflow: hidden;
 }
 
 .glass-panel-warm {
@@ -198,8 +202,12 @@
 }
 
 @keyframes orb-pulse {
-  0%, 100% { transform: scale(1); opacity: 0.8; }
-  50%       { transform: scale(1.12); opacity: 1; }
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.05); }
+}
+
+.orb-breathe {
+  animation: orb-pulse 4s ease-in-out infinite;
 }
 
 /* ──────────────────────────────────────────────────────────

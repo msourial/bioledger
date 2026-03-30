@@ -66,10 +66,7 @@ export const PixelPanel = ({
   return (
     <div
       className={cn(
-        'glass-panel rounded-2xl relative p-6',
-        variant === 'primary'
-          ? 'shadow-[0_8px_32px_rgba(139,92,246,0.12)]'
-          : 'shadow-[0_8px_32px_rgba(251,113,133,0.10)]',
+        'glass-panel relative p-6',
         className
       )}
     >
@@ -124,11 +121,11 @@ export const AuraOrb = ({ state = 'idle', size = 'lg', className }: AuraOrbProps
   const px = sizes[size];
 
   const coreColors = {
-    idle:    ['#FF9A7B', '#FFB8A4', '#FFD4C4'],   // warm peach — living, warm companion
-    active:  ['#34D399', '#FFB347', '#FF9A7B'],   // mint + golden + peach glow
-    signing: ['#F472B6', '#FF9A7B', '#FFD700'],   // pink/peach/gold burst
-    warning: ['#FBBF24', '#FCD34D', '#FB7185'],   // warm amber warning
-    demo:    ['#FF9A7B', '#FB7185', '#34D399'],   // warm coral/coral/mint
+    idle:    ['#fb7185', '#e879f9', '#818cf8'],   // rose-400 → fuchsia-400 → indigo-400
+    active:  ['#34d399', '#e879f9', '#818cf8'],   // emerald-400 → fuchsia-400 → indigo-400
+    signing: ['#fb7185', '#e879f9', '#fbbf24'],   // rose → fuchsia → amber burst
+    warning: ['#fbbf24', '#fb923c', '#fb7185'],   // amber → orange → rose
+    demo:    ['#818cf8', '#e879f9', '#34d399'],   // indigo → fuchsia → emerald
   };
 
   const [c1, c2, c3] = coreColors[state];
@@ -156,14 +153,14 @@ export const AuraOrb = ({ state = 'idle', size = 'lg', className }: AuraOrbProps
           animation: 'scan-ring 8s linear infinite',
         }}
       />
-      {/* Core orb */}
+      {/* Core orb — breathes gently via orb-breathe CSS animation */}
       <div
-        className="aura-orb relative rounded-full flex items-center justify-center"
+        className="aura-orb orb-breathe relative rounded-full flex items-center justify-center"
         style={{
           width: px * 0.6,
           height: px * 0.6,
-          background: `radial-gradient(circle at 35% 35%, ${c3}, ${c2} 50%, ${c1})`,
-          boxShadow: `0 0 ${px * 0.2}px ${c1}60, 0 0 ${px * 0.4}px ${c1}20`,
+          background: `linear-gradient(to top right, ${c1}, ${c2}, ${c3})`,
+          boxShadow: `0 0 ${px * 0.25}px ${c1}70, 0 0 ${px * 0.5}px ${c2}30`,
         }}
       >
         {/* Inner sparkle */}
