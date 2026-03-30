@@ -18,6 +18,8 @@ type BioContext = {
   isSessionActive: boolean;
   sessionDurationSeconds: number;
   hourOfDay: number;
+  sessionMinutes?: number;
+  completedChallenges?: number;
 };
 
 type MiniBioContext = {
@@ -31,10 +33,13 @@ function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): 
   const timeLabel =
     hour < 6 ? "late night" : hour < 12 ? "morning" : hour < 18 ? "afternoon" : hour < 22 ? "evening" : "late night";
 
-  const sessionMins = Math.round(bio.sessionDurationSeconds / 60);
+  const sessionMins = bio.sessionMinutes ?? Math.round(bio.sessionDurationSeconds / 60);
   const sessionStatus = bio.isSessionActive
     ? `Active session — ${sessionMins} minute${sessionMins === 1 ? "" : "s"} elapsed`
     : "No active session";
+  const challengeStatus = bio.completedChallenges != null && bio.completedChallenges > 0
+    ? `\n- Wellness Challenges Today: ${bio.completedChallenges} completed 🌿`
+    : "";
 
   const recentHistory = recentReceiptSummaries && recentReceiptSummaries.length > 0
     ? `\nSESSION HISTORY & CONTEXT:\n${recentReceiptSummaries.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n`
@@ -57,7 +62,7 @@ CURRENT BIOMETRIC SNAPSHOT (${timeLabel}):
 - Focus Score: ${bio.focusScore}/100
 - APM: ${bio.apm} actions/minute
 - Posture: ${bio.postureWarning ? "needs attention — gentle reminder to sit up 🌿" : "good"}
-- ${sessionStatus}
+- ${sessionStatus}${challengeStatus}
 ${recentHistory}
 CONTEXT THRESHOLDS (for your reference, don't recite these):
 - HRV <55ms → elevated stress, suggest recovery

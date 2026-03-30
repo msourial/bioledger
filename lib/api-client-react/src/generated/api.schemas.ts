@@ -35,7 +35,7 @@ export const WorkReceiptCidStatus = {
 } as const;
 
 /**
- * Type of receipt — work (focus session) or insight (AURA AI recommendation)
+ * Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)
  */
 export type WorkReceiptReceiptType =
   (typeof WorkReceiptReceiptType)[keyof typeof WorkReceiptReceiptType];
@@ -43,6 +43,7 @@ export type WorkReceiptReceiptType =
 export const WorkReceiptReceiptType = {
   work: "work",
   insight: "insight",
+  wellness: "wellness",
 } as const;
 
 export interface WorkReceipt {
@@ -80,7 +81,7 @@ export const CreateReceiptBodyCidStatus = {
 } as const;
 
 /**
- * Type of receipt — work (focus session) or insight (AURA AI recommendation)
+ * Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)
  */
 export type CreateReceiptBodyReceiptType =
   (typeof CreateReceiptBodyReceiptType)[keyof typeof CreateReceiptBodyReceiptType];
@@ -88,6 +89,7 @@ export type CreateReceiptBodyReceiptType =
 export const CreateReceiptBodyReceiptType = {
   work: "work",
   insight: "insight",
+  wellness: "wellness",
 } as const;
 
 export interface CreateReceiptBody {
@@ -119,6 +121,10 @@ export interface AuraBioContext {
   isSessionActive: boolean;
   sessionDurationSeconds: number;
   hourOfDay: number;
+  /** Elapsed session minutes */
+  sessionMinutes?: number;
+  /** Number of wellness challenges completed today */
+  completedChallenges?: number;
 }
 
 export type AuraChatMessageRole =

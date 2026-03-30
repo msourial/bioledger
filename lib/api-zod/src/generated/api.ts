@@ -61,16 +61,16 @@ export const ListReceiptsResponseItem = zod.object({
       "True when the receipt was created during a 60-second guided Demo Mode session",
     ),
   receiptType: zod
-    .enum(["work", "insight"])
+    .enum(["work", "insight", "wellness"])
     .optional()
     .describe(
-      "Type of receipt — work (focus session) or insight (AURA AI recommendation)",
+      "Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)",
     ),
   insightText: zod
     .string()
     .optional()
     .describe(
-      "The AURA AI recommendation text (only present for insight receipts)",
+      "The AURA AI recommendation text (only present for insight/wellness receipts)",
     ),
   createdAt: zod.coerce.date(),
 });
@@ -108,16 +108,16 @@ export const CreateReceiptBody = zod.object({
       "True when the receipt was created during a 60-second guided Demo Mode session",
     ),
   receiptType: zod
-    .enum(["work", "insight"])
+    .enum(["work", "insight", "wellness"])
     .optional()
     .describe(
-      "Type of receipt — work (focus session) or insight (AURA AI recommendation)",
+      "Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)",
     ),
   insightText: zod
     .string()
     .optional()
     .describe(
-      "The AURA AI recommendation text (only present for insight receipts)",
+      "The AURA AI recommendation text (only present for insight/wellness receipts)",
     ),
 });
 
@@ -137,6 +137,8 @@ export const AuraChatBody = zod.object({
       isSessionActive: zod.boolean(),
       sessionDurationSeconds: zod.number(),
       hourOfDay: zod.number(),
+      sessionMinutes: zod.number().optional().describe("Elapsed session minutes"),
+      completedChallenges: zod.number().optional().describe("Number of wellness challenges completed today"),
     })
     .describe("Live biometric snapshot sent with each AURA chat request"),
   history: zod

@@ -25,7 +25,7 @@ import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
 import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
-import { useWellnessCoach } from '@/hooks/use-wellness-coach';
+import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
@@ -97,6 +97,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   // Proactive nudge tracking
   const [proactiveNudge, setProactiveNudge] = useState<string | null>(null);
+  // AURA inject message — wellness challenge nudge injected directly as an AURA message
+  const [challengeNudge, setChallengeNudge] = useState<string | null>(null);
   const nudgeSentRef = useRef<{ posture: boolean; hrv: boolean; lateNight: boolean }>({
     posture: false,
     hrv: false,
@@ -269,8 +271,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   }, [isSessionActive]);
 
   // Wellness coach
-  const handleWellnessChallenge = useCallback(() => {
+  const handleWellnessChallenge = useCallback((challenge: WellnessChallenge) => {
     setRightTab('chat');
+    setChallengeNudge(challenge.nudgeMessage);
   }, []);
 
   const wellnessCoach = useWellnessCoach({
@@ -283,19 +286,22 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     onChallenge: handleWellnessChallenge,
   });
 
-  // Sign and file a wellness receipt when a challenge is completed
+  // Sign and file a wellness receipt through the full sign + Filecoin pipeline
   const signWellnessReceipt = useCallback(async (challengeType: string, xpAwarded: number) => {
     const stats = { durationSeconds: 0, apm, hrv, strain, focusScore: Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60)) };
     const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined, 'wellness');
+    const filecoin = await storeToFilecoin(signed);
     createReceiptMutation.mutate(
       {
         data: {
           nullifierHash,
           sessionStats: stats,
           companionSignature: signed.companionSignature,
+          receiptCid: filecoin.cid ?? undefined,
+          cidStatus: filecoin.status,
           isDemo: false,
           physicalIntegrity: camera.faceDetected,
-          receiptType: 'insight',
+          receiptType: 'wellness',
           insightText: `[WELLNESS +${xpAwarded}XP] ${challengeType} challenge completed`,
         },
       },
@@ -970,11 +976,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 isSessionActive,
                 sessionDurationSeconds: POMODORO_TIME - timeLeft,
                 hourOfDay: new Date().getHours(),
+                sessionMinutes: Math.round((POMODORO_TIME - timeLeft) / 60),
+                completedChallenges: wellnessCoach.completedChallenges.length,
               }}
               nullifierHash={nullifierHash}
               onInsightSigned={(text) => void signInsightReceipt(text)}
               proactiveNudge={proactiveNudge}
               onNudgeClear={() => setProactiveNudge(null)}
+              auraInjectMessage={challengeNudge}
+              onAuraInjectClear={() => setChallengeNudge(null)}
               recentReceipts={(receipts ?? []).slice(-3).map((r) => ({
                 receiptType: r.receiptType ?? 'work',
                 hrv: (r.sessionStats as { hrv?: number }).hrv ?? 0,

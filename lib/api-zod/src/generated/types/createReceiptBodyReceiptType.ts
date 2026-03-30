@@ -7,7 +7,7 @@
  */
 
 /**
- * Type of receipt — work (focus session) or insight (AURA AI recommendation)
+ * Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)
  */
 export type CreateReceiptBodyReceiptType =
   (typeof CreateReceiptBodyReceiptType)[keyof typeof CreateReceiptBodyReceiptType];
@@ -15,4 +15,5 @@ export type CreateReceiptBodyReceiptType =
 export const CreateReceiptBodyReceiptType = {
   work: "work",
   insight: "insight",
+  wellness: "wellness",
 } as const;

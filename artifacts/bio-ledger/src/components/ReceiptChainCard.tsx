@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Brain, Sparkles, Heart, Shield, Database } from 'lucide-react';
+import { CheckCircle2, AlertTriangle, XCircle, ExternalLink, Brain, Sparkles, Heart, Shield, Database, Leaf } from 'lucide-react';
 import { cn, truncateHash } from '@/lib/utils';
 import { type WorkReceipt } from '@workspace/api-client-react';
 
@@ -97,6 +97,42 @@ function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
   ];
 }
 
+function buildWellnessSteps(receipt: WorkReceipt): ChainStep[] {
+  const { sessionStats, physicalIntegrity, companionSignature, insightText, receiptCid, cidStatus } = receipt;
+  const xpMatch = insightText?.match(/\+(\d+)XP/);
+  const xp = xpMatch ? xpMatch[1] : '?';
+  const challengeLabel = insightText?.replace(/^\[WELLNESS \+\d+XP\] /, '') ?? 'Wellness challenge';
+  const storageStatus: StepStatus = cidStatus === 'stored' ? 'ok' : cidStatus === 'failed' ? 'failed' : 'partial';
+
+  return [
+    {
+      label: 'Wellness Challenge',
+      sublabel: 'AURA Proactive Coaching',
+      value: challengeLabel,
+      detail: physicalIntegrity ? 'Physical presence confirmed ✓' : 'Challenge completed',
+      status: 'ok',
+      icon: <Leaf className="w-3.5 h-3.5" />,
+    },
+    {
+      label: `XP Earned: +${xp} XP`,
+      sublabel: 'AURA Co-Signed · ERC-8004',
+      value: truncateHash(companionSignature),
+      detail: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}/21`,
+      status: 'ok',
+      icon: <Sparkles className="w-3.5 h-3.5" />,
+    },
+    {
+      label: 'Saved to Filecoin',
+      sublabel: 'Synapse SDK · Decentralized Storage',
+      value: receiptCid ? `${receiptCid.slice(0, 18)}…` : cidStatus === 'failed' ? 'Upload failed' : 'Pending upload',
+      detail: receiptCid ? 'Wellness receipt permanently stored.' : 'Add SYNAPSE_API_KEY to enable.',
+      status: storageStatus,
+      link: receiptCid ? `https://w3s.link/ipfs/${receiptCid}` : undefined,
+      icon: <Database className="w-3.5 h-3.5" />,
+    },
+  ];
+}
+
 interface ReceiptChainCardProps {
   receipt: WorkReceipt;
   index: number;
@@ -104,7 +140,8 @@ interface ReceiptChainCardProps {
 
 export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardProps) {
   const isInsight = receipt.receiptType === 'insight';
-  const steps = isInsight ? buildInsightSteps(receipt) : buildWorkSteps(receipt);
+  const isWellness = receipt.receiptType === 'wellness';
+  const steps = isWellness ? buildWellnessSteps(receipt) : isInsight ? buildInsightSteps(receipt) : buildWorkSteps(receipt);
   const okCount = steps.filter(s => s.status === 'ok').length;
   const overallStatus: StepStatus =
     okCount === steps.length ? 'ok' :
@@ -127,13 +164,15 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
       transition={{ delay: index * 0.06, duration: 0.35, ease: 'easeOut' }}
       className={cn(
         'milestone-card p-4 relative overflow-hidden',
-        isInsight && 'milestone-card-mint'
+        isInsight && 'milestone-card-mint',
+        isWellness && 'milestone-card-mint'
       )}
     >
-      {/* Subtle score-based top gradient bar */}
+      {/* Top gradient accent bar */}
       <div className={cn(
         'absolute top-0 inset-x-0 h-0.5 bg-gradient-to-r',
-        overallStatus === 'ok' ? 'from-violet-400/80 via-emerald-400/60 to-transparent'
+        isWellness ? 'from-emerald-400/80 via-teal-400/50 to-transparent'
+          : overallStatus === 'ok' ? 'from-violet-400/80 via-emerald-400/60 to-transparent'
           : overallStatus === 'partial' ? 'from-amber-400/80 via-violet-400/40 to-transparent'
           : 'from-red-400/60 to-transparent'
       )} />
@@ -141,7 +180,11 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
       {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <div className="flex items-center gap-2">
-          {isInsight ? (
+          {isWellness ? (
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-400/20 border border-emerald-400/30 flex items-center justify-center flex-shrink-0">
+              <Leaf className="w-4 h-4 text-emerald-300" />
+            </div>
+          ) : isInsight ? (
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-400/20 to-rose-400/20 border border-violet-400/30 flex items-center justify-center flex-shrink-0">
               <Brain className="w-4 h-4 text-violet-300" />
             </div>
@@ -152,7 +195,7 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
           )}
           <div>
             <div className="font-terminal text-sm font-semibold text-white/90">
-              {isInsight ? 'AURA Wellness Insight' : 'Focus Session'}
+              {isWellness ? '🌿 Wellness Receipt' : isInsight ? 'AURA Wellness Insight' : 'Focus Session'}
             </div>
             <div className="font-terminal text-sm text-muted-foreground">
               {dateStr} · {timeStr}
@@ -167,7 +210,11 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
               Demo
             </span>
           )}
-          {isInsight ? (
+          {isWellness ? (
+            <span className="font-terminal text-xs font-semibold px-2 py-0.5 border bg-emerald-500/10 text-emerald-300 border-emerald-400/30 rounded-full">
+              🌿 Wellness
+            </span>
+          ) : isInsight ? (
             <span className="font-terminal text-xs font-semibold px-2 py-0.5 border bg-violet-500/10 text-violet-300 border-violet-400/30 rounded-full">
               ✦ Insight
             </span>
@@ -185,6 +232,13 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
           )}
         </div>
       </div>
+
+      {/* Wellness insight preview */}
+      {isWellness && receipt.insightText && (
+        <div className="mb-3 p-3 bg-emerald-500/8 border border-emerald-400/15 rounded-xl font-terminal text-sm text-emerald-100/80 leading-relaxed line-clamp-2">
+          {receipt.insightText.replace(/^\[WELLNESS \+\d+XP\] /, '')}
+        </div>
+      )}
 
       {/* Insight text preview */}
       {isInsight && receipt.insightText && (

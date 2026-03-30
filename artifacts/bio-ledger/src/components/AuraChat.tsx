@@ -14,6 +14,8 @@ export interface AuraBioContext {
   isSessionActive: boolean;
   sessionDurationSeconds: number;
   hourOfDay: number;
+  sessionMinutes?: number;
+  completedChallenges?: number;
 }
 
 export interface ReceiptSummaryItem {
@@ -40,6 +42,9 @@ interface AuraChatProps {
   onInsightSigned?: (text: string) => void;
   proactiveNudge?: string | null;
   onNudgeClear?: () => void;
+  /** Direct AURA message injection — appears as AURA speaking (no API round-trip) */
+  auraInjectMessage?: string | null;
+  onAuraInjectClear?: () => void;
   recentReceipts?: ReceiptSummaryItem[];
   activeChallenge?: WellnessChallenge | null;
   captureFrame?: () => string | null;
@@ -73,6 +78,9 @@ interface SpeechRecognitionErrorEvent extends Event { error: string; }
 function formatReceiptSummary(r: ReceiptSummaryItem): string {
   const mins = Math.round(r.durationSeconds / 60);
   const date = new Date(r.createdAt).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  if (r.receiptType === 'wellness' && r.insightText) {
+    return `[${date}] Wellness Challenge: ${r.insightText.replace(/^\[WELLNESS \+\d+XP\] /, '')}`;
+  }
   if (r.receiptType === 'insight' && r.insightText) {
     return `[${date}] AURA Insight: "${r.insightText.slice(0, 80)}${r.insightText.length > 80 ? '...' : ''}"`;
   }
@@ -84,6 +92,8 @@ export default function AuraChat({
   onInsightSigned,
   proactiveNudge,
   onNudgeClear,
+  auraInjectMessage,
+  onAuraInjectClear,
   recentReceipts = [],
   activeChallenge,
   captureFrame,
@@ -250,6 +260,23 @@ export default function AuraChat({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [proactiveNudge]);
 
+  // Inject an AURA message directly (no API round-trip) — used for wellness challenge dispatch
+  const injectSentRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!auraInjectMessage) {
+      injectSentRef.current = null;
+      return;
+    }
+    if (auraInjectMessage === injectSentRef.current) return;
+    injectSentRef.current = auraInjectMessage;
+    setMessages((prev) => [
+      ...prev,
+      { role: 'assistant', content: auraInjectMessage, timestamp: new Date() },
+    ]);
+    onAuraInjectClear?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [auraInjectMessage]);
+
   const toggleListening = useCallback(() => {
     if (!speechSupported) return;
     if (isListening) {
@@ -317,6 +344,19 @@ export default function AuraChat({
                 <p className="font-terminal text-sm text-violet-100/80 leading-relaxed">
                   {activeChallenge.nudgeMessage}
                 </p>
+                {/* "Done" button for manual verification challenges (e.g. Mindful Breath) */}
+                {activeChallenge.verificationMethod === 'manual' && (
+                  <button
+                    onClick={() => {
+                      onChallengeComplete?.(activeChallenge.id, activeChallenge.xpReward);
+                      setLatestXP(activeChallenge.xpReward);
+                      setTimeout(() => setLatestXP(null), 3000);
+                    }}
+                    className="mt-2 font-terminal text-xs font-semibold px-3 py-1 rounded-lg border border-emerald-400/50 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20 transition-colors cursor-pointer"
+                  >
+                    ✓ Done — +{activeChallenge.xpReward} XP
+                  </button>
+                )}
               </div>
               <button
                 onClick={onChallengeDismiss}
