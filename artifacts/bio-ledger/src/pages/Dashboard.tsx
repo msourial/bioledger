@@ -36,6 +36,7 @@ import ReceiptChainCard from '@/components/ReceiptChainCard';
 import AuraChat from '@/components/AuraChat';
 import ExerciseBreakModal, { EXERCISES, type Exercise } from '@/components/ExerciseBreakModal';
 import MovementChallenge, { getRandomMovement, type Movement } from '@/components/MovementChallenge';
+import BreathingExercise from '@/components/BreathingExercise';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
@@ -184,6 +185,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   // RSI Risk scoring
   const rsiRisk = useRSIRisk(isSessionActive, apm, camera.faceDetected, isDemoMode);
+
+  // Breathing exercise overlay
+  const [breathingOpen, setBreathingOpen] = useState(false);
 
   // Stretch gesture detection (arms raised above head) — activated by stretchChallengeActive state
   const [stretchChallengeActive, setStretchChallengeActive] = useState(false);
@@ -425,6 +429,24 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     onChallenge: handleWellnessChallenge,
     onComplete: handleWellnessComplete,
   });
+
+  // Breathing exercise: auto-open when breath challenge is active
+  useEffect(() => {
+    if (wellnessCoach.activeChallenge?.type === 'breath') {
+      setBreathingOpen(true);
+    }
+  }, [wellnessCoach.activeChallenge]);
+
+  const handleBreathingComplete = useCallback((xp: number, before: { hrv: number; blinkRate: number; headStability: number }, after: { hrv: number; blinkRate: number; headStability: number }) => {
+    // Complete the breath challenge if active
+    if (wellnessCoach.activeChallenge?.type === 'breath') {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, xp);
+    }
+    setBreathingOpen(false);
+    const hrvDelta = before.hrv > 0 ? Math.round(((after.hrv - before.hrv) / before.hrv) * 100) : 0;
+    const blinkDelta = before.blinkRate > 0 ? Math.round(((after.blinkRate - before.blinkRate) / before.blinkRate) * 100) : 0;
+    console.log(`🧠 Neurotech: Breathing exercise — HRV delta ${hrvDelta >= 0 ? '+' : ''}${hrvDelta}%, blink rate delta ${blinkDelta >= 0 ? '+' : ''}${blinkDelta}%`);
+  }, [wellnessCoach]);
 
   // Stretch detection: activate when a physical challenge is active
   const STRETCH_CHALLENGE_TYPES = ['posture', 'movement', 'wrist-stretch', 'neck-roll', 'standing-break'];
@@ -835,6 +857,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Breathing Exercise Overlay */}
+      <BreathingExercise
+        isOpen={breathingOpen}
+        onClose={() => setBreathingOpen(false)}
+        onComplete={handleBreathingComplete}
+        hrv={hrv}
+        blinkRate={camera.visionMetrics.avgBlinkRate}
+        headStability={camera.visionMetrics.headStability}
+      />
 
       {/* XP Toast Popup */}
       <AnimatePresence>
