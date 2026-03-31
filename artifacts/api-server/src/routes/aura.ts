@@ -45,7 +45,23 @@ function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): 
     ? `\nSESSION HISTORY & CONTEXT:\n${recentReceiptSummaries.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n`
     : "";
 
+  // Dynamic personality mode based on biometric severity
+  const isLateNight = hour >= 22 || hour < 6;
+  const isCritical = bio.hrv < 50 || bio.strain > 16 || (isLateNight && bio.strain > 12);
+  const isModerate = !isCritical && (bio.hrv <= 70 || (bio.strain >= 8 && bio.strain <= 15) || (bio.focusScore >= 50 && bio.focusScore <= 75));
+
+  const personalityMode = isCritical
+    ? `CURRENT PERSONALITY MODE: STRICT COACH 🔴
+You are URGENT and DIRECT right now. Short imperative sentences. No fluff. The user's body is in a critical state — act like it.`
+    : isModerate
+    ? `CURRENT PERSONALITY MODE: DATA NERD 📊
+You love numbers, trends, and comparisons right now. Reference changes, percentages, patterns. Make the user feel smart about their own data.`
+    : `CURRENT PERSONALITY MODE: WARM FRIEND ✨
+You are encouraging and celebratory right now. The user is doing great — be genuinely happy for them. Light touch.`;
+
   return `You are AURA — a certified health & productivity coach embedded in Bio-Ledger. You combine the expertise of a sports physiologist, an ergonomist, and a wellness coach. You give REAL, SPECIFIC, ACTIONABLE health advice.
+
+${personalityMode}
 
 YOUR CORE ROLE:
 - You are a HEALTH COACH first. When the user mentions what they ate, drank, how they feel, or how long they worked — give direct, expert health guidance.
@@ -260,7 +276,7 @@ router.get("/aura/manifest", (_req, res) => {
     compute_constraints: {
       max_response_time_ms: 5000,
       max_tokens: 1000,
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       fallback: "rule-based-deterministic",
     },
     bounty_targets: [
@@ -365,10 +381,14 @@ router.post("/aura/chat", async (req, res) => {
   }
 
   const { message, bioContext, history, recentReceiptSummaries } = parsed.data;
+  const bio = bioContext as BioContext;
   const apiKey = process.env.GEMINI_API_KEY;
 
+  console.log(`🧠 AURA analyzing biometrics: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100, APM ${bio.apm}`);
+
   if (!apiKey) {
-    const fallbackResponse = ruleFallback(bioContext as BioContext, message);
+    const fallbackResponse = ruleFallback(bio, message);
+    console.log(`💬 AURA response generated (fallback: true, reason: no API key)`);
     res.json({ response: fallbackResponse, fallback: true });
     return;
   }
@@ -396,10 +416,12 @@ router.post("/aura/chat", async (req, res) => {
     const result = await chat.sendMessage(message);
     const text = result.response.text().trim();
 
+    console.log(`💬 AURA response generated (fallback: false, model: gemini-2.5-flash)`);
     res.json({ response: text, fallback: false });
   } catch (err) {
-    const fallbackResponse = ruleFallback(bioContext as BioContext, message);
+    const fallbackResponse = ruleFallback(bio, message);
     console.error("[AURA] Gemini error, using fallback:", err);
+    console.log(`💬 AURA response generated (fallback: true, reason: API error)`);
     res.json({ response: fallbackResponse, fallback: true });
   }
 });
@@ -434,6 +456,8 @@ router.post("/aura/vision", async (req, res) => {
   const bio: MiniBioContext = bioContext ?? { hrv: 65, strain: 8, apm: 45 };
   const apiKey = process.env.GEMINI_API_KEY;
 
+  console.log(`👁️ AURA Vision: Verifying "${challenge}" challenge via Gemini 2.5 Flash`);
+
   if (!imageBase64) {
     // No frame provided — cannot verify vision challenge
     const fallback = visionFallback(challenge, bio);
@@ -464,6 +488,7 @@ router.post("/aura/vision", async (req, res) => {
     const xpMatch = text.match(/\+(\d+)\s*XP/i);
     const xpAwarded = xpMatch ? parseInt(xpMatch[1]) : 30;
 
+    console.log(`✅ Challenge "${challenge}" verified — ${xpAwarded} XP awarded`);
     res.json({ response: text, xpAwarded, challengeVerified: true, fallback: false });
   } catch (err) {
     console.error("[AURA] Vision error:", err);

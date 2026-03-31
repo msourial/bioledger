@@ -152,9 +152,10 @@ export default function AuraChat({
       setInput('');
       setIsLoading(true);
 
-      const historyForApi = messages
-        .slice(-9)
-        .map((m) => ({ role: m.role, content: m.content }));
+      // Filter history: skip leading assistant messages (Gemini requires first message to be 'user')
+      const recentMessages = messages.slice(-9).map((m) => ({ role: m.role, content: m.content }));
+      const firstUserIdx = recentMessages.findIndex((m) => m.role === 'user');
+      const historyForApi = firstUserIdx >= 0 ? recentMessages.slice(firstUserIdx) : [];
 
       const summaries = recentReceipts.slice(-3).map(formatReceiptSummary);
 

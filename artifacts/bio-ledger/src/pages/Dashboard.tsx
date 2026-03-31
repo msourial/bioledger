@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Package,
   Star,
+  Monitor,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
@@ -35,7 +36,7 @@ import AuraChat from '@/components/AuraChat';
 import ExerciseBreakModal, { EXERCISES, type Exercise } from '@/components/ExerciseBreakModal';
 import MovementChallenge, { getRandomMovement, type Movement } from '@/components/MovementChallenge';
 import { cn, truncateHash } from '@/lib/utils';
-import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
+import { signWorkReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
 import type { WearableSource } from '@/pages/LockScreen';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
@@ -124,6 +125,20 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   // Sovereign Export panel
   const [exportOpen, setExportOpen] = useState(false);
+
+  // ─── Reward System State ───────────────────────────────────────────────────
+  const [sessionGrade, setSessionGrade] = useState<SessionGradeResult | null>(null);
+  const [sessionBonusXP, setSessionBonusXP] = useState(0);
+  const [streak, setStreak] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aura-streak');
+      if (saved) return JSON.parse(saved) as { current: number; longest: number; lastDate: string | null };
+    } catch { /* ignore */ }
+    return { current: 0, longest: 0, lastDate: null as string | null };
+  });
+  const [xpToast, setXpToast] = useState<{ xp: number; type: string; method: string } | null>(null);
+  const xpToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
 
   /** Fetch a URL and trigger a browser file download */
   const downloadJson = useCallback(async (url: string, filename: string) => {
@@ -233,6 +248,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       presenceLostAlerted.current = false;
     }
   }, [presenceLost]);
+
+  // Screen time counter — accumulates while session active & face detected
+  useEffect(() => {
+    if (!isSessionActive) { setScreenTimeSeconds(0); return; }
+    const interval = setInterval(() => {
+      if (camera.faceDetected) setScreenTimeSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSessionActive, camera.faceDetected]);
 
   const handleDownloadReceiptsJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(receipts ?? [], null, 2)], { type: 'application/json' });
@@ -364,6 +388,27 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   const handleWellnessComplete = useCallback((challenge: WellnessChallenge, xpAwarded: number) => {
     void signWellnessReceipt(challenge.type, xpAwarded);
+
+    // XP toast popup
+    if (xpToastTimerRef.current) clearTimeout(xpToastTimerRef.current);
+    setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
+    xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
+
+    // Reward chime (Web Audio API — no file needed)
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(523, ctx.currentTime);
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1);
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2);
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch { /* audio not available */ }
   }, [signWellnessReceipt]);
 
   const wellnessCoach = useWellnessCoach({
@@ -418,6 +463,37 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       physicalIntegrityRef.current &&
       motionLock.physicalIntegrity &&
       camera.faceDetected;
+
+    // Compute session grade
+    const grade = gradeSession(stats, {
+      challengesCompleted: wellnessCoach.completedChallenges.length,
+      challengesTriggered: wellnessCoach.completedChallenges.length + (wellnessCoach.activeChallenge ? 1 : 0),
+      certifiedPresence: camera.visionMetrics?.certifiedPresence ?? camera.faceDetected,
+      headStability: camera.visionMetrics?.headStability ?? 80,
+      avgBlinkRate: camera.visionMetrics?.avgBlinkRate ?? 15,
+      postureWarningRatio: camera.postureWarning ? 0.3 : 0.05,
+      demoMode: isDemo,
+    });
+    setSessionGrade(grade);
+    setSessionBonusXP((prev) => prev + grade.xpBonus);
+
+    // Update streak
+    const today = new Date().toISOString().slice(0, 10);
+    setStreak((prev) => {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let next;
+      if (prev.lastDate === today) {
+        next = prev;
+      } else if (prev.lastDate === yesterday || prev.lastDate === null) {
+        const newCurrent = prev.current + 1;
+        next = { current: newCurrent, longest: Math.max(prev.longest, newCurrent), lastDate: today };
+      } else {
+        next = { current: 1, longest: Math.max(prev.longest, 1), lastDate: today };
+      }
+      localStorage.setItem('aura-streak', JSON.stringify(next));
+      console.log(`🔥 Streak: ${next.current} day(s) | Longest: ${next.longest}`);
+      return next;
+    });
 
     const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
 
@@ -656,6 +732,123 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         )}
       </AnimatePresence>
 
+      {/* Session Grade Overlay */}
+      <AnimatePresence>
+        {sessionGrade && !isFiling && !isSessionActive && (
+          <motion.div
+            key="session-grade"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(10,6,30,0.85)', backdropFilter: 'blur(20px)' }}
+            onClick={() => setSessionGrade(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.3, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+              className="text-center cursor-pointer"
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 150, damping: 10, delay: 0.4 }}
+                className={cn(
+                  'text-9xl font-pixel font-bold leading-none mb-2',
+                  sessionGrade.grade === 'S' ? 'text-yellow-400 drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]'
+                    : sessionGrade.grade === 'A' ? 'text-green-400 drop-shadow-[0_0_30px_rgba(74,222,128,0.6)]'
+                    : sessionGrade.grade === 'B' ? 'text-blue-400 drop-shadow-[0_0_25px_rgba(96,165,250,0.6)]'
+                    : sessionGrade.grade === 'C' ? 'text-orange-400 drop-shadow-[0_0_20px_rgba(251,146,60,0.5)]'
+                    : 'text-red-400 drop-shadow-[0_0_20px_rgba(248,113,113,0.5)]'
+                )}
+              >
+                {sessionGrade.grade}
+              </motion.div>
+              <div className="font-terminal text-lg font-bold text-white/90 tracking-widest uppercase mb-1">
+                {sessionGrade.title}
+              </div>
+              <div className="font-terminal text-sm text-muted-foreground mb-4">
+                {sessionGrade.subtitle}
+              </div>
+              <div className="font-terminal text-2xl font-bold text-primary mb-4">
+                {sessionGrade.score}/100 — +{sessionGrade.xpBonus} XP
+              </div>
+              <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto text-xs font-terminal">
+                {(['focus', 'biometric', 'challenge', 'presence', 'duration', 'engagement'] as const).map((key) => (
+                  <div key={key} className="text-center">
+                    <div className="text-muted-foreground capitalize">{key}</div>
+                    <div className="text-white font-bold">{sessionGrade.breakdown[key]}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 px-4 py-3 rounded-lg border border-white/10 max-w-xs mx-auto text-left"
+                style={{ background: 'rgba(255,255,255,0.04)' }}
+              >
+                <div className="font-terminal text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Session Rewards</div>
+                <div className="flex justify-between font-terminal text-xs">
+                  <span className="text-muted-foreground">Challenges done</span>
+                  <span className="text-white font-bold">{wellnessCoach.completedChallenges.length}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1">
+                  <span className="text-muted-foreground">Challenge XP</span>
+                  <span className="text-amber-400 font-bold">+{wellnessCoach.totalXP}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1">
+                  <span className="text-muted-foreground">Grade bonus</span>
+                  <span className="text-amber-400 font-bold">+{sessionGrade.xpBonus}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1 pt-1 border-t border-white/10">
+                  <span className="text-white font-bold">Total earned</span>
+                  <span className="text-amber-300 font-bold">+{wellnessCoach.totalXP + sessionGrade.xpBonus} XP</span>
+                </div>
+              </div>
+              {streak.current > 0 && (
+                <div className="font-terminal text-sm text-orange-400 mt-3">
+                  {streak.current}-day streak{streak.current > 1 ? ` (best: ${streak.longest})` : ''}
+                </div>
+              )}
+              <div className="font-terminal text-xs text-muted-foreground/50 mt-4">TAP TO DISMISS</div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* XP Toast Popup */}
+      <AnimatePresence>
+        {xpToast && (
+          <motion.div
+            key={`xp-${Date.now()}`}
+            initial={{ opacity: 0, y: 30, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -40, scale: 0.6 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] pointer-events-none"
+          >
+            <div className="flex flex-col items-center gap-1 px-6 py-3 rounded-xl border border-amber-400/40"
+              style={{ background: 'rgba(15,10,40,0.9)', backdropFilter: 'blur(16px)', boxShadow: '0 0 30px rgba(250,204,21,0.3)' }}
+            >
+              <motion.div
+                initial={{ scale: 0.5 }}
+                animate={{ scale: [0.5, 1.3, 1] }}
+                transition={{ duration: 0.4 }}
+                className="text-3xl font-pixel font-bold text-amber-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]"
+              >
+                +{xpToast.xp} XP
+              </motion.div>
+              <div className="font-terminal text-xs text-amber-300/80 uppercase tracking-wider">
+                {xpToast.method === 'vision' ? 'Verified by AURA Vision'
+                  : xpToast.method === 'behavioral' ? 'Auto-detected — great job listening!'
+                  : 'Challenge completed'}
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground capitalize">
+                {xpToast.type.replace('-', ' ')}
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* ═══════════════ LEFT PANE: LIVING ROOM ═══════════════ */}
       <motion.div
         className="w-full md:w-1/2 h-[50vh] md:h-screen relative border-b md:border-b-0 md:border-r overflow-hidden flex flex-col backdrop-blur-xl"
@@ -713,7 +906,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
             </div>
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
-              const xp = wellnessCoach.totalXP;
+              const xp = wellnessCoach.totalXP + sessionBonusXP;
               const level = Math.floor(xp / 100);
               const progress = xp % 100;
               return (
@@ -740,6 +933,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                   {level > 0 && (
                     <span className="font-pixel text-[6px] text-amber-400/70 border border-amber-400/30 px-1 py-px rounded-sm">
                       LVL {level}
+                    </span>
+                  )}
+                  {streak.current > 0 && (
+                    <span className="font-pixel text-[6px] text-orange-400/80 border border-orange-400/30 px-1 py-px rounded-sm">
+                      {streak.current}d 🔥
                     </span>
                   )}
                 </div>
@@ -919,6 +1117,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
               >
                 {formatTime(timeLeft)}
               </div>
+              {isSessionActive && (
+                <div className="flex items-center gap-1.5 mt-1 font-terminal text-xs text-muted-foreground">
+                  <Monitor className="w-3 h-3" />
+                  <span>SCREEN TIME: {formatTime(screenTimeSeconds)}</span>
+                </div>
+              )}
             </div>
             <div className="text-right pb-2 flex flex-col gap-1 items-end">
               <div className="flex items-center justify-end gap-1.5 mb-1">
