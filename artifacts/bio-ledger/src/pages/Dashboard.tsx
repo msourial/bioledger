@@ -26,20 +26,33 @@ import { useAPM } from '@/hooks/use-apm';
 import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
 import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
+import { useRSIRisk, type RiskLevel, type RSIRiskState } from '@/hooks/use-rsi-risk';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
 import ReceiptChainCard from '@/components/ReceiptChainCard';
 import AuraChat from '@/components/AuraChat';
+import ExerciseBreakModal, { EXERCISES, type Exercise } from '@/components/ExerciseBreakModal';
+import MovementChallenge, { getRandomMovement, type Movement } from '@/components/MovementChallenge';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
+import type { WearableSource } from '@/pages/LockScreen';
+import { usePrivySafe } from '@/hooks/use-privy-safe';
 
 interface DashboardProps {
   nullifierHash: string;
   bioSourceConnected: boolean;
+  wearableSource: WearableSource;
+  walletAddress: string | null;
   onLogout: () => void;
 }
+
+const WEARABLE_LABELS: Record<WearableSource, { label: string; color: string }> = {
+  'fitbit': { label: 'FITBIT', color: 'text-[#00B0B9]' },
+  'whoop': { label: 'WHOOP', color: 'text-teal-400' },
+  'demo': { label: 'DEMO', color: 'text-yellow-500/70' },
+};
 
 const POMODORO_TIME = 25 * 60;
 const DEMO_TIME = 60;
@@ -72,7 +85,8 @@ function AnimatedNumber({ value, className }: { value: number; className?: strin
   return <motion.span className={className}>{display}</motion.span>;
 }
 
-export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout }: DashboardProps) {
+export default function Dashboard({ nullifierHash, bioSourceConnected, wearableSource, walletAddress, onLogout }: DashboardProps) {
+  const privy = usePrivySafe();
   const { hrv, strain } = useMockBioData();
   const [isSessionActive, setIsSessionActive] = useState(false);
   const apm = useAPM(isSessionActive);
@@ -152,6 +166,58 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   // Camera / Sovereign Senses — always on while in the vault
   const camera = useCamera(true);
 
+  // RSI Risk scoring
+  const rsiRisk = useRSIRisk(isSessionActive, apm, camera.faceDetected, isDemoMode);
+
+  // Receipts — must be before exercise/break callbacks that use createReceiptMutation
+  const { data: rawReceipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
+  const receipts = Array.isArray(rawReceipts) ? rawReceipts : [];
+  const createReceiptMutation = useCreateReceipt();
+
+  // Movement challenge state (camera-verified)
+  const [movementChallenge, setMovementChallenge] = useState<Movement | null>(null);
+  const movementTriggeredRef = useRef(false);
+
+  // Trigger movement challenge when RSI risk gets elevated
+  useEffect(() => {
+    const triggerLevel = isDemoMode ? 'moderate' : 'high';
+    if (rsiRisk.riskLevel === triggerLevel && !movementTriggeredRef.current && !movementChallenge) {
+      movementTriggeredRef.current = true;
+      setMovementChallenge(getRandomMovement());
+    }
+    if (rsiRisk.riskLevel === 'low') {
+      movementTriggeredRef.current = false;
+    }
+  }, [rsiRisk.riskLevel, isDemoMode, movementChallenge]);
+
+  // Also trigger at critical if the first one was skipped
+  useEffect(() => {
+    if (rsiRisk.riskLevel === 'critical' && !movementChallenge) {
+      setMovementChallenge(getRandomMovement());
+    }
+  }, [rsiRisk.riskLevel, movementChallenge]);
+
+  const handleMovementComplete = useCallback(async (movement: Movement) => {
+    setMovementChallenge(null);
+    movementTriggeredRef.current = false;
+    const stats = { durationSeconds: 0, apm, hrv, strain, focusScore: Math.min(100, Math.round((apm / 100) * 40 + (hrv / 120) * 60)) };
+    const signed = await signWorkReceipt(nullifierHash, stats, strain, undefined, 'wellness');
+    const filecoin = await storeToFilecoin(signed);
+    createReceiptMutation.mutate({
+      data: {
+        nullifierHash,
+        sessionStats: signed.sessionStats as any,
+        companionSignature: signed.companionSignature,
+        receiptCid: filecoin.cid ?? undefined,
+        cidStatus: filecoin.status,
+        isDemo: isDemoMode,
+        physicalIntegrity: true,
+        receiptType: 'wellness',
+        insightText: `[MOVEMENT +${movement.xp}XP] ${movement.title} — verified by AURA Vision`,
+      },
+    });
+  }, [apm, hrv, strain, nullifierHash, isDemoMode, createReceiptMutation]);
+
   // Sovereign Presence Lost: camera active but no face detected during session
   const presenceLost = isSessionActive && camera.isActive && !camera.faceDetected;
   const presenceLostAlerted = useRef(false);
@@ -167,9 +233,6 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       presenceLostAlerted.current = false;
     }
   }, [presenceLost]);
-
-  const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
-  const createReceiptMutation = useCreateReceipt();
 
   const handleDownloadReceiptsJson = useCallback(() => {
     const blob = new Blob([JSON.stringify(receipts ?? [], null, 2)], { type: 'application/json' });
@@ -356,7 +419,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       motionLock.physicalIntegrity &&
       camera.faceDetected;
 
-    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
+    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
 
     setFilingPhase('FILING TO FILECOIN...');
     const filecoin = await storeToFilecoin(signedReceipt);
@@ -395,6 +458,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     setTimeLeft(DEMO_TIME);
     physicalIntegrityRef.current = true;
     setIsSessionActive(true);
+
+    // Force-trigger a movement challenge after 8 seconds in demo
+    setTimeout(() => {
+      setMovementChallenge(getRandomMovement());
+    }, 8000);
   };
 
   const formatTime = (seconds: number) => {
@@ -458,6 +526,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         }
         bioSource={bioSourceConnected ? 'connected' : 'demo'}
         onClose={() => setProvenanceMetric(null)}
+      />
+
+      {/* Movement Challenge — camera-verified */}
+      <MovementChallenge
+        open={!!movementChallenge}
+        movement={movementChallenge}
+        captureFrame={camera.captureFrame}
+        onComplete={handleMovementComplete}
+        onSkip={() => { setMovementChallenge(null); movementTriggeredRef.current = false; }}
       />
 
       {/* Motion Lock Banner */}
@@ -608,14 +685,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             <div className="flex items-center gap-2 text-sm font-terminal text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary" />
               ID: {truncateHash(nullifierHash)}
-              {bioSourceConnected && (
-                <span className="text-green-400 ml-1">· WHOOP ✓</span>
-              )}
-              {!bioSourceConnected && (
-                <span className="text-yellow-500/70 ml-1">· DEMO</span>
-              )}
+              <span className={cn('ml-1', WEARABLE_LABELS[wearableSource].color)}>
+                · {WEARABLE_LABELS[wearableSource].label} {wearableSource !== 'demo' ? '✓' : ''}
+              </span>
             </div>
-            {/* AURA-AGENT-V1 Identity Badge */}
+            {/* Dual identity badges */}
             <div className="flex items-center gap-2 mt-2 flex-wrap">
               <motion.div
                 className="flex items-center gap-1.5 px-3 py-1 border border-violet-400/30 bg-violet-500/8 rounded-full w-fit"
@@ -627,6 +701,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
                 <span className="font-pixel text-[7px] text-rose-300/80 tracking-wider">ERC-8004</span>
               </motion.div>
+              {walletAddress && (
+                <div className="flex items-center gap-1.5 px-3 py-1 border border-teal-400/30 bg-teal-500/8 rounded-full w-fit">
+                  <span className="font-pixel text-[7px] text-teal-300 tracking-widest">FLOW EVM</span>
+                  <span className="font-pixel text-[7px] text-muted-foreground/50">·</span>
+                  <span className="font-pixel text-[7px] text-teal-400/80 tracking-wider">
+                    {walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}
+                  </span>
+                </div>
+              )}
             </div>
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
@@ -665,10 +748,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
           </div>
           <button
             onClick={onLogout}
-            className="p-2 bg-card border-2 border-muted hover:border-accent text-muted-foreground hover:text-accent transition-colors cursor-pointer"
-            title="Lock Vault"
+            className="flex items-center gap-2 px-3 py-2 bg-card border-2 border-muted hover:border-red-500/50 text-muted-foreground hover:text-red-400 transition-colors cursor-pointer rounded-lg"
+            title="Sign out & lock vault"
           >
             <LogOut className="w-4 h-4" />
+            <span className="font-terminal text-[11px] hidden sm:inline">Logout</span>
           </button>
         </div>
 
@@ -758,34 +842,35 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
         {/* Camera Lens */}
         <CameraLens camera={camera} isSessionActive={isSessionActive} />
 
-        {/* Bio-Markers with Provenance Badges */}
-        <div className="relative z-10 p-4 sm:p-8 flex gap-4">
+        {/* Bio-Markers row */}
+        <div className="relative z-10 px-4 sm:px-8 pt-4 sm:pt-6 flex gap-3">
           <PixelPanel className="flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                <Activity className="w-3.5 h-3.5 text-accent flex-shrink-0" />
-                HRV
-                <span className="font-terminal text-sm font-normal text-muted-foreground/50 normal-case tracking-normal">ms</span>
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5 font-terminal text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <Activity className="w-3 h-3 text-accent flex-shrink-0" />
+                HRV <span className="font-normal text-muted-foreground/50 normal-case tracking-normal">ms</span>
               </div>
               <ProvBadge onClick={() => setProvenanceMetric('HRV')} />
             </div>
-            <div className="flex items-baseline gap-1">
-              <AnimatedNumber value={hrv} className="text-4xl font-terminal font-bold text-primary text-shadow-violet" />
-            </div>
+            <AnimatedNumber value={hrv} className="text-2xl font-terminal font-bold text-primary text-shadow-violet" />
           </PixelPanel>
           <PixelPanel className="flex-1">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 font-terminal text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                <Brain className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+            <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center gap-1.5 font-terminal text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                <Brain className="w-3 h-3 text-accent flex-shrink-0" />
                 STRAIN
               </div>
               <ProvBadge onClick={() => setProvenanceMetric('STRAIN')} />
             </div>
             <div className="flex items-baseline gap-1">
-              <AnimatedNumber value={strain} className="text-4xl font-terminal font-bold text-foreground" />
-              <span className="font-terminal text-sm font-bold text-muted-foreground/60">/21</span>
+              <AnimatedNumber value={strain} className="text-2xl font-terminal font-bold text-foreground" />
+              <span className="font-terminal text-[10px] font-bold text-muted-foreground/60">/21</span>
             </div>
           </PixelPanel>
+        </div>
+        {/* RSIGuard bar */}
+        <div className="relative z-10 px-4 sm:px-8 pb-4 sm:pb-6 pt-3">
+          <RSIGuardPanel rsiRisk={rsiRisk} />
         </div>
       </motion.div>
 
@@ -1112,6 +1197,71 @@ function ExportButton({ label, sublabel, onClick }: { label: string; sublabel: s
       </div>
       <span className="font-terminal text-sm text-muted-foreground/60 ml-4">{sublabel}</span>
     </motion.button>
+  );
+}
+
+// ─── RSI Risk Meter Component ─────────────────────────────────────────────────
+
+const RSI_COLORS: Record<RiskLevel, { ring: string; text: string; bg: string; glow: string }> = {
+  low:      { ring: '#22c55e', text: 'text-emerald-400', bg: 'bg-emerald-500/10', glow: 'drop-shadow(0 0 6px #22c55e)' },
+  moderate: { ring: '#eab308', text: 'text-amber-400',   bg: 'bg-amber-500/10',   glow: 'drop-shadow(0 0 6px #eab308)' },
+  high:     { ring: '#f97316', text: 'text-orange-400',  bg: 'bg-orange-500/10',   glow: 'drop-shadow(0 0 6px #f97316)' },
+  critical: { ring: '#ef4444', text: 'text-red-400',     bg: 'bg-red-500/10',      glow: 'drop-shadow(0 0 10px #ef4444)' },
+};
+
+function RSIGuardPanel({ rsiRisk }: { rsiRisk: RSIRiskState }) {
+  const { riskScore, riskLevel, minutesSinceBreak, complianceRate, streak, totalKeystrokes, totalClicks, totalMouseDistance } = rsiRisk;
+  const colors = RSI_COLORS[riskLevel];
+
+  // Progress bar width
+  const barWidth = Math.min(100, riskScore);
+
+  return (
+    <div className={cn(
+      'glass-panel rounded-lg px-4 py-3',
+      riskLevel === 'critical' && 'border-red-500/40',
+    )}>
+      {/* Top: label + score + risk bar */}
+      <div className="flex items-center gap-3 mb-2">
+        <Shield className="w-3.5 h-3.5 text-accent flex-shrink-0" />
+        <span className="font-terminal text-[10px] font-bold uppercase tracking-widest text-muted-foreground">RSIGuard</span>
+        <div className="flex-1 h-2 bg-white/5 rounded-full overflow-hidden">
+          <motion.div
+            className="h-full rounded-full"
+            style={{ background: colors.ring, filter: colors.glow }}
+            animate={{ width: `${barWidth}%` }}
+            transition={{ duration: 0.5, ease: 'easeOut' }}
+          />
+        </div>
+        <motion.span
+          className={cn('font-terminal text-sm font-bold min-w-[2rem] text-right', colors.text)}
+          animate={riskLevel === 'critical' ? { opacity: [1, 0.4, 1] } : {}}
+          transition={riskLevel === 'critical' ? { duration: 0.6, repeat: Infinity } : {}}
+        >
+          {riskScore}
+        </motion.span>
+        <span className={cn(
+          'font-pixel text-[7px] font-bold uppercase px-1.5 py-0.5 rounded',
+          colors.bg, colors.text,
+        )}>
+          {riskLevel}
+        </span>
+      </div>
+      {/* Bottom: metrics row */}
+      <div className="flex items-center gap-4 text-[10px] font-terminal text-muted-foreground/60">
+        <span>{minutesSinceBreak}m no break</span>
+        <span className="text-muted-foreground/20">|</span>
+        <span>{complianceRate}% comply</span>
+        <span className="text-muted-foreground/20">|</span>
+        <span>{streak} streak</span>
+        <span className="text-muted-foreground/20">|</span>
+        <span>{totalKeystrokes > 999 ? `${(totalKeystrokes / 1000).toFixed(1)}k` : totalKeystrokes} keys</span>
+        <span className="text-muted-foreground/20">|</span>
+        <span>{totalClicks} clicks</span>
+        <span className="text-muted-foreground/20">|</span>
+        <span>{totalMouseDistance < 1 ? `${Math.round(totalMouseDistance * 100)}cm` : `${totalMouseDistance.toFixed(1)}m`}</span>
+      </div>
+    </div>
   );
 }
 

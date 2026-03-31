@@ -42,13 +42,25 @@ async function getLandmarker(): Promise<FaceLandmarker> {
   if (!landmarkerPromise) {
     landmarkerPromise = (async () => {
       const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
-      return FaceLandmarker.createFromOptions(vision, {
-        baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
-        outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: true,
-        runningMode: 'VIDEO',
-        numFaces: 1,
-      });
+      // Try GPU first, fall back to CPU if it fails
+      try {
+        return await FaceLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'GPU' },
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true,
+          runningMode: 'VIDEO',
+          numFaces: 1,
+        });
+      } catch (gpuErr) {
+        console.warn('[Bio-Ledger] GPU delegate failed, falling back to CPU:', gpuErr);
+        return FaceLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: MODEL_URL, delegate: 'CPU' },
+          outputFaceBlendshapes: true,
+          outputFacialTransformationMatrixes: true,
+          runningMode: 'VIDEO',
+          numFaces: 1,
+        });
+      }
     })().catch((err) => {
       landmarkerPromise = null;
       throw err;
@@ -206,7 +218,13 @@ export function useCamera(enabled: boolean): UseCameraResult {
         await video.play().catch(() => {});
       }
 
-      landmarkerRef.current = await getLandmarker();
+      // Load MediaPipe model — non-fatal if it fails
+      try {
+        landmarkerRef.current = await getLandmarker();
+      } catch (modelErr) {
+        console.warn('[Bio-Ledger] Face landmarker failed to load, running without face detection:', modelErr);
+        landmarkerRef.current = null;
+      }
 
       lastPresenceRef.current = Date.now();
       sessionStartRef.current = Date.now();

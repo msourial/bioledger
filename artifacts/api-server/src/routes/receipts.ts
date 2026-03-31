@@ -1,9 +1,25 @@
 import { Router, type IRouter } from "express";
-import { db, workReceiptsTable } from "@workspace/db";
+import { db, hasDb, inMemory, workReceiptsTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { CreateReceiptBody, ListReceiptsQueryParams } from "@workspace/api-zod";
 
 const router: IRouter = Router();
+
+function formatReceipt(r: any) {
+  return {
+    id: r.id,
+    nullifierHash: r.nullifierHash,
+    sessionStats: r.sessionStats,
+    companionSignature: r.companionSignature,
+    receiptCid: r.receiptCid ?? undefined,
+    cidStatus: (r.cidStatus ?? "pending") as "pending" | "stored" | "failed",
+    isDemo: r.isDemo ?? false,
+    physicalIntegrity: r.physicalIntegrity ?? undefined,
+    receiptType: (r.receiptType ?? "work") as "work" | "insight",
+    insightText: r.insightText ?? undefined,
+    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
+  };
+}
 
 router.get("/receipts", async (req, res) => {
   const query = ListReceiptsQueryParams.safeParse(req.query);
@@ -19,27 +35,16 @@ router.get("/receipts", async (req, res) => {
     return;
   }
 
-  const receipts = await db
-    .select()
-    .from(workReceiptsTable)
-    .where(eq(workReceiptsTable.nullifierHash, nullifier))
-    .orderBy(workReceiptsTable.createdAt);
-
-  res.json(
-    receipts.map((r) => ({
-      id: r.id,
-      nullifierHash: r.nullifierHash,
-      sessionStats: r.sessionStats,
-      companionSignature: r.companionSignature,
-      receiptCid: r.receiptCid ?? undefined,
-      cidStatus: (r.cidStatus ?? "pending") as "pending" | "stored" | "failed",
-      isDemo: r.isDemo ?? false,
-      physicalIntegrity: r.physicalIntegrity ?? undefined,
-      receiptType: (r.receiptType ?? "work") as "work" | "insight",
-      insightText: r.insightText ?? undefined,
-      createdAt: r.createdAt.toISOString(),
-    }))
-  );
+  if (hasDb && db) {
+    const receipts = await db
+      .select()
+      .from(workReceiptsTable)
+      .where(eq(workReceiptsTable.nullifierHash, nullifier))
+      .orderBy(workReceiptsTable.createdAt);
+    res.json(receipts.map(formatReceipt));
+  } else {
+    res.json(inMemory.select(nullifier).map(formatReceipt));
+  }
 });
 
 router.post("/receipts", async (req, res) => {
@@ -51,34 +56,28 @@ router.post("/receipts", async (req, res) => {
 
   const { nullifierHash, sessionStats, companionSignature, receiptCid, cidStatus, isDemo, physicalIntegrity, receiptType, insightText } = body.data;
 
-  const [inserted] = await db
-    .insert(workReceiptsTable)
-    .values({
-      nullifierHash,
-      sessionStats,
-      companionSignature,
-      receiptCid: receiptCid ?? null,
-      cidStatus: cidStatus ?? "pending",
-      isDemo: isDemo ?? false,
-      physicalIntegrity: physicalIntegrity ?? null,
-      receiptType: receiptType ?? "work",
-      insightText: insightText ?? null,
-    })
-    .returning();
+  const data = {
+    nullifierHash,
+    sessionStats,
+    companionSignature,
+    receiptCid: receiptCid ?? null,
+    cidStatus: cidStatus ?? "pending",
+    isDemo: isDemo ?? false,
+    physicalIntegrity: physicalIntegrity ?? null,
+    receiptType: receiptType ?? "work",
+    insightText: insightText ?? null,
+  };
 
-  res.status(201).json({
-    id: inserted.id,
-    nullifierHash: inserted.nullifierHash,
-    sessionStats: inserted.sessionStats,
-    companionSignature: inserted.companionSignature,
-    receiptCid: inserted.receiptCid ?? undefined,
-    cidStatus: (inserted.cidStatus ?? "pending") as "pending" | "stored" | "failed",
-    isDemo: inserted.isDemo ?? false,
-    physicalIntegrity: inserted.physicalIntegrity ?? undefined,
-    receiptType: (inserted.receiptType ?? "work") as "work" | "insight",
-    insightText: inserted.insightText ?? undefined,
-    createdAt: inserted.createdAt.toISOString(),
-  });
+  let inserted: any;
+
+  if (hasDb && db) {
+    [inserted] = await db.insert(workReceiptsTable).values(data).returning();
+  } else {
+    inserted = inMemory.insert(data as any);
+  }
+
+  console.log("📝 ERC-8004 Receipt created — ID:", inserted.id, "Type:", inserted.receiptType ?? "work");
+  res.status(201).json(formatReceipt(inserted));
 });
 
 export default router;

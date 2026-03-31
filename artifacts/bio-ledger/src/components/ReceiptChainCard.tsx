@@ -5,6 +5,14 @@ import { type WorkReceipt } from '@workspace/api-client-react';
 
 type StepStatus = 'ok' | 'partial' | 'failed';
 
+const EMPTY_STATS = { hrv: 0, strain: 0, focusScore: 0, apm: 0, durationSeconds: 0 };
+
+/** Safely read sessionStats — receipts from the DB may have null/undefined stats */
+function safeStats(receipt: WorkReceipt) {
+  const s = receipt.sessionStats as unknown as Record<string, number> | null | undefined;
+  return s ? { ...EMPTY_STATS, ...s } : EMPTY_STATS;
+}
+
 interface ChainStep {
   label: string;
   sublabel: string;
@@ -28,7 +36,8 @@ function statusColor(status: StepStatus) {
 }
 
 function buildWorkSteps(receipt: WorkReceipt): ChainStep[] {
-  const { sessionStats, physicalIntegrity, companionSignature, receiptCid, cidStatus } = receipt;
+  const sessionStats = safeStats(receipt);
+  const { physicalIntegrity, companionSignature, receiptCid, cidStatus } = receipt;
 
   const storageStatus: StepStatus =
     cidStatus === 'stored' ? 'ok' :
@@ -72,7 +81,8 @@ function buildWorkSteps(receipt: WorkReceipt): ChainStep[] {
 }
 
 function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
-  const { sessionStats, physicalIntegrity, companionSignature, insightText } = receipt;
+  const sessionStats = safeStats(receipt);
+  const { physicalIntegrity, companionSignature, insightText } = receipt;
   const summaryText = insightText
     ? (insightText.length > 60 ? insightText.slice(0, 60) + '…' : insightText)
     : `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain}`;
@@ -98,7 +108,8 @@ function buildInsightSteps(receipt: WorkReceipt): ChainStep[] {
 }
 
 function buildWellnessSteps(receipt: WorkReceipt): ChainStep[] {
-  const { sessionStats, physicalIntegrity, companionSignature, insightText, receiptCid, cidStatus } = receipt;
+  const sessionStats = safeStats(receipt);
+  const { physicalIntegrity, companionSignature, insightText, receiptCid, cidStatus } = receipt;
   const xpMatch = insightText?.match(/\+(\d+)XP/);
   const xp = xpMatch ? xpMatch[1] : '?';
   const challengeLabel = insightText?.replace(/^\[WELLNESS \+\d+XP\] /, '') ?? 'Wellness challenge';
@@ -151,7 +162,7 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
   const dateStr = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
   const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-  const focusScore = receipt.sessionStats.focusScore;
+  const focusScore = safeStats(receipt).focusScore;
   const scoreGradient =
     focusScore >= 80 ? 'from-emerald-400/20 to-violet-500/10' :
     focusScore >= 60 ? 'from-violet-500/20 to-rose-400/10' :
@@ -302,14 +313,14 @@ export default function ReceiptChainCard({ receipt, index }: ReceiptChainCardPro
       {/* Score footer */}
       <div className={cn('mt-3 pt-3 border-t border-white/8 flex justify-between items-center')}>
         <span className="font-terminal text-sm text-muted-foreground">
-          {isInsight ? 'AI Wellness Note' : `${Math.round(receipt.sessionStats.durationSeconds / 60)} min session`}
+          {isInsight ? 'AI Wellness Note' : `${Math.round(safeStats(receipt).durationSeconds / 60)} min session`}
         </span>
         <div className={cn('flex items-center gap-1.5 px-2.5 py-1 rounded-full text-sm font-semibold font-terminal bg-gradient-to-r', scoreGradient, 'border border-white/10')}>
           {isInsight ? (
             <span className="text-violet-300">✦ AURA Signed</span>
           ) : (
             <span className="text-emerald-300">
-              Focus <span className="font-bold">{receipt.sessionStats.focusScore}</span>/100
+              Focus <span className="font-bold">{safeStats(receipt).focusScore}</span>/100
             </span>
           )}
         </div>

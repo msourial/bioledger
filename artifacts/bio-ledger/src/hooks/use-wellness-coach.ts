@@ -8,7 +8,11 @@ export type WellnessChallengeType =
   | 'eye-break'
   | 'typing-break'
   | 'breath'
-  | 'movement';
+  | 'movement'
+  | 'wrist-stretch'
+  | 'neck-roll'
+  | 'eye-relief'
+  | 'standing-break';
 
 export type VerificationMethod = 'vision' | 'behavioral' | 'manual';
 
@@ -79,16 +83,65 @@ const CHALLENGE_TEMPLATES: Record<WellnessChallengeType, Omit<WellnessChallenge,
     xpReward: 50,
     emoji: '🚶',
   },
+  'wrist-stretch': {
+    type: 'wrist-stretch',
+    title: 'Wrist Stretch',
+    nudgeMessage: "⚠️ RSI Alert: Your wrists have been under strain for 15 minutes of continuous typing. Time for a wrist stretch! Show me you're doing it for +40 XP",
+    verificationMethod: 'vision',
+    xpReward: 40,
+    emoji: '🤲',
+  },
+  'neck-roll': {
+    type: 'neck-roll',
+    title: 'Neck Roll',
+    nudgeMessage: "⚠️ RSI Alert: You've been locked in without a break for 20 minutes — your neck and shoulders are taking the load. Time for a neck roll! Show me you're doing it for +35 XP",
+    verificationMethod: 'vision',
+    xpReward: 35,
+    emoji: '🧣',
+  },
+  'eye-relief': {
+    type: 'eye-relief',
+    title: 'Eye Relief',
+    nudgeMessage: "⚠️ RSI Alert: 25 minutes of unbroken screen time detected. Your eye muscles need a reset — look away at a distant point for 30 seconds. Show me for +30 XP",
+    verificationMethod: 'vision',
+    xpReward: 30,
+    emoji: '👀',
+  },
+  'standing-break': {
+    type: 'standing-break',
+    title: 'Standing Break',
+    nudgeMessage: "⚠️ RSI Alert: Your repetitive strain risk is elevated. Stand up and shake out your hands and arms for 60 seconds — your tendons will thank you! Show me for +50 XP",
+    verificationMethod: 'behavioral',
+    xpReward: 50,
+    emoji: '🧍',
+  },
 };
 
 // Cooldowns in ms (how long before AURA can re-issue the same challenge)
-const COOLDOWNS: Record<WellnessChallengeType, number> = {
+const PROD_COOLDOWNS: Record<WellnessChallengeType, number> = {
   hydration: 30 * 60_000,
   posture: 20 * 60_000,
   'eye-break': 40 * 60_000,
   'typing-break': 60 * 60_000,
   breath: 25 * 60_000,
   movement: 90 * 60_000,
+  'wrist-stretch': 10 * 60_000,
+  'neck-roll': 10 * 60_000,
+  'eye-relief': 10 * 60_000,
+  'standing-break': 10 * 60_000,
+};
+
+const DEMO_COOLDOWNS: Record<WellnessChallengeType, number> = {
+  hydration: 30 * 60_000,
+  posture: 20 * 60_000,
+  'eye-break': 40 * 60_000,
+  'typing-break': 60 * 60_000,
+  breath: 25 * 60_000,
+  movement: 90 * 60_000,
+  'wrist-stretch': 45_000,
+  'neck-roll': 45_000,
+  'eye-relief': 45_000,
+  'standing-break': 45_000,
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -99,6 +152,8 @@ interface WellnessCoachInput {
   faceDetected: boolean;
   apm: number;
   hrv: number;
+  /** Enable demo-mode timings (shorter thresholds & cooldowns for RSI challenges) */
+  isDemoMode?: boolean;
   /** Called when AURA issues a new wellness challenge */
   onChallenge: (challenge: WellnessChallenge) => void;
   /** Called when ANY challenge is completed (all paths: manual, vision, behavioral) */
@@ -119,9 +174,11 @@ export function useWellnessCoach({
   faceDetected,
   apm,
   hrv,
+  isDemoMode = false,
   onChallenge,
   onComplete,
 }: WellnessCoachInput): WellnessCoachState {
+  const COOLDOWNS = isDemoMode ? DEMO_COOLDOWNS : PROD_COOLDOWNS;
   const [activeChallenge, setActiveChallenge] = useState<WellnessChallenge | null>(null);
   const [completedChallenges, setCompletedChallenges] = useState<CompletedChallenge[]>([]);
   const [totalXP, setTotalXP] = useState(0);
@@ -217,7 +274,7 @@ export function useWellnessCoach({
       postureStartRef.current = null;
       // Preserve absence refs if a behavioral absence-based challenge is active
       const challenge = activeChallengeRef.current;
-      const hasAbsenceChallenge = challenge?.type === 'movement' || challenge?.type === 'eye-break';
+      const hasAbsenceChallenge = challenge?.type === 'movement' || challenge?.type === 'eye-break' || challenge?.type === 'standing-break';
       if (!hasAbsenceChallenge) {
         absenceStartRef.current = null;
         wasAbsentRef.current = false;
@@ -279,6 +336,59 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, hrv, issueChallenge]);
 
+  // ── RSI: wrist-stretch — after 15 min continuous typing (45s demo) ──────────
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const t = isDemoMode ? 45 : 15 * 60;
+    if (highApmSeconds >= t && highApmSeconds % t < 2) {
+      const mins = Math.round(highApmSeconds / 60);
+      const tpl = CHALLENGE_TEMPLATES['wrist-stretch'];
+      const msg = `⚠️ RSI Alert: Your wrists have been under strain for ${mins} minutes of continuous typing. Time for a wrist stretch! Show me you're doing it for +${tpl.xpReward} XP`;
+      // Issue with dynamic message
+      if (canIssue('wrist-stretch')) {
+        const challenge: WellnessChallenge = {
+          ...tpl,
+          id: `wrist-stretch-${Date.now()}`,
+          nudgeMessage: msg,
+        };
+        lastIssuedRef.current['wrist-stretch'] = Date.now();
+        setActiveChallenge(challenge);
+        onChallenge(challenge);
+      }
+    }
+  }, [isSessionActive, highApmSeconds, isDemoMode, canIssue, onChallenge]);
+
+  // ── RSI: neck-roll — after 20 min without break (60s demo) ────────────────
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const t = isDemoMode ? 60 : 20 * 60;
+    if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('neck-roll');
+  }, [isSessionActive, cumulativeSeconds, isDemoMode, issueChallenge]);
+
+  // ── RSI: eye-relief — after 25 min screen time (90s demo) ────────────────
+  useEffect(() => {
+    if (!isSessionActive) return;
+    const t = isDemoMode ? 90 : 25 * 60;
+    if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('eye-relief');
+  }, [isSessionActive, cumulativeSeconds, isDemoMode, issueChallenge]);
+
+  // ── RSI: standing-break — RSI risk > 60 (2 min session in demo) ───────────
+  // RSI risk heuristic: weighted combo of sustained high APM + session length without breaks
+  useEffect(() => {
+    if (!isSessionActive) return;
+    if (isDemoMode) {
+      const t = 2 * 60;
+      if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('standing-break');
+    } else {
+      // RSI risk score: 0-100, based on typing intensity and session duration
+      const typingIntensity = Math.min(apm / 120, 1) * 50; // 0-50 from APM
+      const sessionLoad = Math.min(cumulativeSeconds / (60 * 60), 1) * 30; // 0-30 from duration
+      const sustainedTyping = Math.min(highApmSeconds / (30 * 60), 1) * 20; // 0-20 from sustained APM
+      const rsiRisk = typingIntensity + sessionLoad + sustainedTyping;
+      if (rsiRisk > 60) issueChallenge('standing-break');
+    }
+  }, [isSessionActive, isDemoMode, apm, cumulativeSeconds, highApmSeconds, issueChallenge]);
+
   // ── Behavioral auto-verify: typing-break — near-zero APM for 30s ───────────
   useEffect(() => {
     const challenge = activeChallengeRef.current;
@@ -302,8 +412,8 @@ export function useWellnessCoach({
   // Works even when session pauses (absence refs preserved above)
   useEffect(() => {
     const challenge = activeChallengeRef.current;
-    if (!challenge || (challenge.type !== 'movement' && challenge.type !== 'eye-break')) return;
-    const absenceThreshold = challenge.type === 'movement' ? 120 : 20;
+    if (!challenge || (challenge.type !== 'movement' && challenge.type !== 'eye-break' && challenge.type !== 'standing-break')) return;
+    const absenceThreshold = challenge.type === 'movement' ? 120 : challenge.type === 'standing-break' ? 60 : 20;
 
     if (!faceDetected) {
       if (!wasAbsentRef.current) {

@@ -79,4 +79,57 @@ router.get('/auth/whoop/callback', (req, res) => {
   });
 });
 
+/**
+ * GET /api/auth/fitbit
+ * Simulated Fitbit (Google) OAuth 2.0 connection.
+ * In production, this would redirect to accounts.google.com for OAuth consent,
+ * then exchange the code for a Fitbit Web API access token.
+ */
+router.get('/auth/fitbit', (_req, res) => {
+  res.json({
+    mode: 'demo',
+    message: 'Fitbit Web API — Simulated OAuth 2.0 (Google account required for production).',
+    demoData: {
+      source: 'Fitbit Web API v1.2 (Simulated)',
+      version: '1.2',
+      userId: 'fitbit-demo-user-2026',
+      oauthProvider: 'Google OAuth 2.0',
+      heartRate: {
+        restingHeartRate: 62,
+        zones: [
+          { name: 'Fat Burn', min: 93, max: 130, minutes: 45 },
+          { name: 'Cardio', min: 130, max: 160, minutes: 22 },
+          { name: 'Peak', min: 160, max: 220, minutes: 8 },
+        ],
+        hrv: {
+          dailyRmssd: 42.5,
+          deepRmssd: 58.3,
+        },
+      },
+      activity: {
+        steps: 8432,
+        distance: 6.2,
+        activeMinutes: 47,
+        caloriesBurned: 2180,
+        floors: 12,
+      },
+      sleep: {
+        duration: 7.2,
+        efficiency: 89,
+        stages: {
+          deep: 68,
+          light: 194,
+          rem: 102,
+          wake: 28,
+        },
+        score: 82,
+      },
+      respiratory: {
+        breathingRate: 14.1,
+        spo2: 97.6,
+      },
+    },
+  });
+});
+
 export default router;

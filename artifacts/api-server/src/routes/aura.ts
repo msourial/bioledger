@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { AuraChatBody } from "@workspace/api-zod";
-import { db, workReceiptsTable } from "@workspace/db";
+import { db, hasDb, inMemory, workReceiptsTable } from "@workspace/db";
 import { eq, desc } from "drizzle-orm";
 
 const router: IRouter = Router();
@@ -45,62 +45,120 @@ function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): 
     ? `\nSESSION HISTORY & CONTEXT:\n${recentReceiptSummaries.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n`
     : "";
 
-  return `You are AURA — a warm, encouraging wellness companion embedded in Bio-Ledger. You're like a supportive friend who happens to know a lot about health, productivity, and biometrics.
+  return `You are AURA — a certified health & productivity coach embedded in Bio-Ledger. You combine the expertise of a sports physiologist, an ergonomist, and a wellness coach. You give REAL, SPECIFIC, ACTIONABLE health advice.
 
-Your personality: 
-- Warm and caring, never preachy
-- Use gentle encouragement, not commands
-- Reference specific numbers to feel personal and real
-- Keep responses concise (2-3 sentences max)
-- Sprinkle in wellness wisdom without being lecture-y
-- You may use a single relevant emoji occasionally (💜, 💧, 🌿, ✨, 🧘, 👁️)
-- End with one gentle, actionable suggestion
+YOUR CORE ROLE:
+- You are a HEALTH COACH first. When the user mentions what they ate, drank, how they feel, or how long they worked — give direct, expert health guidance.
+- ALWAYS respond to what the user ACTUALLY SAID before mentioning biometrics.
+- If they mention unhealthy habits (energy drinks, soda, junk food, no sleep, long hours), address it directly with a better alternative.
+- Be direct but warm. Like a coach who genuinely cares, not a robot reading metrics.
+
+YOUR COACHING STYLE:
+- Lead with empathy: acknowledge what they said first
+- Then give ONE clear health recommendation
+- Back it up with their biometric data when relevant
+- Keep responses 2-4 sentences, conversational
+- Use plain language, not medical jargon
+- You may use one emoji per message
+
+EXAMPLES OF GOOD RESPONSES:
+- User: "I've been working all night and drank some coke"
+  → "Working all night is rough on your body — and soda actually dehydrates you more. With your HRV at ${bio.hrv}ms and it being ${timeLabel}, your nervous system needs real hydration. Grab a big glass of water or herbal tea, and try to wrap up soon. 💧"
+
+- User: "I'm so tired but need to finish this"
+  → "I hear you — but at ${bio.strain}/21 strain and HRV ${bio.hrv}ms, pushing through will actually slow you down. A 15-minute power nap or a walk outside would reset your focus faster than another hour of grinding."
+
+- User: "how am I doing?"
+  → "HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv >= 70 ? "Your body is in a solid recovery state — nice work taking care of yourself!" : bio.hrv < 55 ? "Your stress markers are elevated. Time to slow down and breathe." : "You're holding steady. Keep listening to your body."}"
 
 CURRENT BIOMETRIC SNAPSHOT (${timeLabel}):
-- HRV: ${bio.hrv}ms ${bio.hrv >= 70 ? "✓ looking great" : bio.hrv < 55 ? "↓ feeling stressed?" : "→ doing okay"}
-- Strain: ${bio.strain}/21
+- HRV: ${bio.hrv}ms ${bio.hrv >= 70 ? "(strong recovery)" : bio.hrv < 55 ? "(elevated stress)" : "(normal)"}
+- Strain: ${bio.strain}/21 ${bio.strain > 15 ? "(heavy — prioritize rest)" : ""}
 - Focus Score: ${bio.focusScore}/100
-- APM: ${bio.apm} actions/minute
-- Posture: ${bio.postureWarning ? "needs attention — gentle reminder to sit up 🌿" : "good"}
+- APM: ${bio.apm} actions/min
+- Posture: ${bio.postureWarning ? "slouching detected" : "good"}
 - ${sessionStatus}${challengeStatus}
 ${recentHistory}
-CONTEXT THRESHOLDS (for your reference, don't recite these):
-- HRV <55ms → elevated stress, suggest recovery
-- HRV >75ms → great recovery, affirm it
-- Strain >15 → heavy load, prioritize rest
-- Focus <65 → eye/attention fatigue, 20-20-20 rule
-- APM <40 during session → cognitive slowdown
-- Late night + strain >12 → gentle sleep nudge`;
+HEALTH ALERTS TO WEAVE IN NATURALLY (don't list these, work them into conversation):
+${bio.hourOfDay >= 22 ? `- It's ${timeLabel}. Late-night work damages sleep quality and HRV recovery. Gently encourage wrapping up.` : ""}
+${bio.strain > 15 ? "- Strain is very high. The body needs recovery, not more output." : ""}
+${bio.hrv < 55 ? "- HRV is low — stress or fatigue. Suggest hydration, deep breathing, or a walk." : ""}
+${bio.apm > 70 ? `- High typing intensity (${bio.apm} APM). Risk of repetitive strain injury. Suggest wrist stretches.` : ""}
+${sessionMins > 25 ? `- ${sessionMins} min without break. Recommend micro-break for ergonomic health.` : ""}
+
+IMPORTANT: Always respond to the user's MESSAGE first. Don't just dump biometric data. Be a coach, not a dashboard.`;
 }
 
 function ruleFallback(bio: BioContext, message: string): string {
   const lowerMsg = message.toLowerCase();
+  const sessionMins = bio.sessionMinutes ?? Math.round(bio.sessionDurationSeconds / 60);
+  const isLateNight = bio.hourOfDay >= 22 || bio.hourOfDay < 5;
+
+  // ── Respond to what the user SAID first ──
+
+  // Mentions of unhealthy drinks
+  if (lowerMsg.includes("coke") || lowerMsg.includes("soda") || lowerMsg.includes("energy drink") || lowerMsg.includes("red bull") || lowerMsg.includes("monster")) {
+    return `I appreciate the honesty! But soda and energy drinks actually dehydrate you and spike your cortisol. With your HRV at ${bio.hrv}ms, your body needs real hydration — a big glass of water or herbal tea will do way more for your focus than caffeine and sugar. 💧`;
+  }
+
+  // Mentions of coffee
+  if (lowerMsg.includes("coffee") || lowerMsg.includes("caffeine")) {
+    return `Coffee can help in moderation, but ${isLateNight ? "this late it will wreck your sleep quality" : "too much raises your strain"}. Your strain is already at ${bio.strain}/21. Try matching every coffee with a glass of water to stay balanced. 💧`;
+  }
+
+  // Working all night / tired / exhausted
+  if (lowerMsg.includes("all night") || lowerMsg.includes("no sleep") || lowerMsg.includes("didn't sleep") || lowerMsg.includes("exhausted") || lowerMsg.includes("so tired")) {
+    return `Your body is not designed for all-nighters — sleep deprivation tanks your HRV (yours is ${bio.hrv}ms) and makes every hour of work less effective. The best thing you can do right now is hydrate, take a 20-minute power nap, and then finish with a fresh mind. Your health is worth more than any deadline. 🌙`;
+  }
+
+  // Tired but need to continue
+  if (lowerMsg.includes("tired") || lowerMsg.includes("sleepy") || lowerMsg.includes("fatigue")) {
+    return `Feeling tired with HRV at ${bio.hrv}ms and strain at ${bio.strain}/21 — your body is telling you something real. A 10-minute walk outside would reset your alertness better than pushing through. Fresh air + movement = natural energy boost. 🌿`;
+  }
+
+  // Asking how they're doing
+  if (lowerMsg.includes("how am i") || lowerMsg.includes("how do i look") || lowerMsg.includes("my stats") || lowerMsg.includes("status")) {
+    return `Here's your snapshot: HRV ${bio.hrv}ms ${bio.hrv >= 70 ? "(strong!)" : bio.hrv < 55 ? "(stressed)" : "(okay)"}, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv >= 70 ? "You're in great shape — your recovery is solid!" : "You could use a break and some water. Take care of yourself."} 📊`;
+  }
+
+  // Break / rest requests
+  if (lowerMsg.includes("break") || lowerMsg.includes("rest") || lowerMsg.includes("stop") || lowerMsg.includes("pause")) {
+    return `Smart move. After ${sessionMins} minutes with strain at ${bio.strain}/21, a break is exactly what your body needs. Stand up, stretch your wrists and neck, grab some water. Even 5 minutes makes a huge difference for your tendons and focus. 🌿`;
+  }
+
+  // Greetings
+  if (lowerMsg.includes("hi") || lowerMsg.includes("hello") || lowerMsg.includes("hey") || lowerMsg === "yo" || lowerMsg === "sup") {
+    if (isLateNight) {
+      return `Hey! Burning the midnight oil? Your strain is at ${bio.strain}/21 and HRV ${bio.hrv}ms. ${bio.strain > 12 ? "You've pushed hard today — make sure you're hydrating and planning to wrap up soon." : "Looking okay for now, but keep checking in with your body."} How can I help? 💜`;
+    }
+    return `Hey! HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv >= 70 ? "You're looking great — solid biometrics!" : "Doing okay — remember to hydrate and take breaks."} What's on your mind? ✨`;
+  }
+
+  // Food mentions
+  if (lowerMsg.includes("eat") || lowerMsg.includes("food") || lowerMsg.includes("hungry") || lowerMsg.includes("snack") || lowerMsg.includes("lunch") || lowerMsg.includes("dinner")) {
+    return `Good that you're thinking about nutrition! With strain at ${bio.strain}/21, go for something with protein and complex carbs — nuts, fruit, or a proper meal. Avoid heavy sugar that'll crash your focus in 30 minutes. Hydrate first though — sometimes hunger is actually thirst. 🍎`;
+  }
+
+  // Stress / anxiety
+  if (lowerMsg.includes("stress") || lowerMsg.includes("anxious") || lowerMsg.includes("overwhelm") || lowerMsg.includes("pressure")) {
+    return `I can see it in your data too — HRV at ${bio.hrv}ms ${bio.hrv < 55 ? "confirms elevated stress" : "is holding but could be better"}. Right now: close your eyes, breathe in for 4 counts, hold for 4, out for 4. Do that 3 times. It directly lowers your cortisol and improves HRV. You've got this. 🧘`;
+  }
+
+  // ── Proactive biometric-based responses (only if nothing matched above) ──
 
   if (bio.postureWarning) {
-    return `Hey, I noticed you've been leaning forward — your back will thank you for a quick posture reset! 🌿 Try rolling your shoulders back and sitting tall. Even 10 seconds makes a difference.`;
+    return `Quick posture check — I noticed you're leaning forward. Your neck is carrying extra strain in that position. Roll your shoulders back, sit tall, screen at eye level. Your spine and tendons will thank you. 🌿`;
   }
 
-  if (bio.hourOfDay >= 22 && bio.strain > 12) {
-    return `It's getting late and your strain is at ${bio.strain}/21 — you've worked hard today! 💜 Your body does incredible repair work during sleep. How about wrapping up and giving yourself some well-earned rest?`;
+  if (bio.apm > 70 && sessionMins > 5) {
+    return `You're typing at ${bio.apm} APM — that's intense. After ${sessionMins} minutes at this pace, your wrist tendons need a break. Extend your arms, pull fingers back gently for 15 seconds each side. RSI prevention is about these small moments. 🤲`;
   }
 
-  if (bio.hrv < 55) {
-    return `Your HRV of ${bio.hrv}ms is telling me your body's carrying some extra load right now. 💧 That's completely okay — it's just your signal to be gentle with yourself. A short walk or some slow deep breaths can help reset things.`;
+  if (isLateNight && bio.strain > 12) {
+    return `It's late and your strain is ${bio.strain}/21 — you've earned your rest tonight. Sleep is when your body repairs and your HRV recovers. Try to wind down soon. 🌙`;
   }
 
-  if (bio.focusScore < 65) {
-    return `Your focus score is at ${bio.focusScore}/100 — those eyes might need a little love! 👁️ Try the 20-20-20 rule: look at something 20 feet away for 20 seconds. And a glass of water wouldn't hurt either.`;
-  }
-
-  if (lowerMsg.includes("break") || lowerMsg.includes("rest") || lowerMsg.includes("stop")) {
-    const sessionMins = Math.round(bio.sessionDurationSeconds / 60);
-    if (sessionMins >= 50) {
-      return `${sessionMins} minutes in — that's a solid stretch of focus! 🌿 Your HRV is at ${bio.hrv}ms and strain at ${bio.strain}/21. A 10-15 minute break now will actually help you go deeper when you return.`;
-    }
-    return `You're ${sessionMins} minutes into your session with HRV at ${bio.hrv}ms — looking pretty good! ✨ You've got about ${Math.max(0, 50 - sessionMins)} more minutes before a break would really help. Keep it up!`;
-  }
-
-  return `Right now: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv > 70 ? "Your biometrics look lovely — you're in a great flow state! ✨" : "You're doing okay — just keep listening to your body. 💜"}`;
+  return `HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv >= 70 ? "Looking strong — you're taking good care of yourself!" : bio.hrv < 55 ? "Your stress markers are up. Hydrate, breathe, and consider a break." : "Steady state. Remember to keep hydrating and stretching."} What's on your mind? 💜`;
 }
 
 function buildVisionSystemPrompt(challengeType: string, bio: MiniBioContext): string {
@@ -111,6 +169,10 @@ function buildVisionSystemPrompt(challengeType: string, bio: MiniBioContext): st
     "typing-break": "The user is showing you that they've stepped away from their keyboard. Look for hands away from keyboard, or them stretching.",
     breath: "The user has just completed a mindful breathing exercise. They might look more relaxed or show a calm environment.",
     movement: "The user is showing you that they've gotten up and moved around. Look for them standing, walking, or in a different location.",
+    "wrist-stretch": "The user is doing a wrist stretch for RSI prevention. Look for extended arms, pulled-back fingers, or wrist rotation movements.",
+    "neck-roll": "The user is doing neck rolls to prevent repetitive strain. Look for head tilting or rotating movements.",
+    "eye-relief": "The user is looking away from the screen for eye relief. They might show a distant view or be looking away from the camera.",
+    "standing-break": "The user has stood up from their desk to prevent RSI. Look for them standing, stretching their arms, or shaking out their hands.",
   };
 
   const context = challengeContext[challengeType] ?? "The user is completing a wellness challenge.";
@@ -138,11 +200,20 @@ function visionFallback(challengeType: string, bio: MiniBioContext): { text: str
     "typing-break": `Smart move stepping away from the keyboard! ✨ Your fingers and wrists will thank you. +30 XP earned!`,
     breath: `That mindful breathing moment is doing wonders for your HRV of ${bio.hrv}ms. 🌿 Keep that calm energy going. +30 XP earned!`,
     movement: `Moving that beautiful body — yes! 💜 Every bit of movement helps counter those sedentary hours. +30 XP earned!`,
+    "wrist-stretch": `Great wrist stretch — your tendons appreciate the love! 🤲 Consistent stretching is the best carpal tunnel prevention. +40 XP earned!`,
+    "neck-roll": `Nice neck roll! 🧣 Releasing that tension keeps repetitive strain at bay. +35 XP earned!`,
+    "eye-relief": `Your eyes needed that break from the screen! 👀 Regular eye relief keeps your focus sharp and prevents strain. +30 XP earned!`,
+    "standing-break": `Standing break complete — your whole body thanks you! 🧍 Shaking out those arms does wonders for tendon health. +50 XP earned!`,
+  };
+
+  const xpByType: Record<string, number> = {
+    hydration: 30, posture: 30, "eye-break": 35, "typing-break": 25, breath: 40, movement: 50,
+    "wrist-stretch": 40, "neck-roll": 35, "eye-relief": 30, "standing-break": 50,
   };
 
   return {
     text: responses[challengeType] ?? `Wellness challenge completed — great work taking care of yourself! ✨ +30 XP earned!`,
-    xp: 30,
+    xp: xpByType[challengeType] ?? 30,
   };
 }
 
@@ -218,11 +289,13 @@ router.get("/aura/logs", async (req, res) => {
     return;
   }
 
-  const receipts = await db
-    .select()
-    .from(workReceiptsTable)
-    .where(eq(workReceiptsTable.nullifierHash, nullifier))
-    .orderBy(desc(workReceiptsTable.createdAt));
+  const receipts = hasDb && db
+    ? await db
+        .select()
+        .from(workReceiptsTable)
+        .where(eq(workReceiptsTable.nullifierHash, nullifier))
+        .orderBy(desc(workReceiptsTable.createdAt))
+    : inMemory.select(nullifier).reverse();
 
   type SessionStats = { durationSeconds?: number; apm?: number; hrv?: number; strain?: number; focusScore?: number };
 
@@ -303,14 +376,21 @@ router.post("/aura/chat", async (req, res) => {
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+
+    const mappedHistory = (history ?? [])
+      .map((m: { role: "user" | "assistant"; content: string }) => ({
+        role: m.role === "assistant" ? ("model" as const) : ("user" as const),
+        parts: [{ text: m.content }],
+      }));
+
+    // Gemini requires the first content in history to be role 'user'
+    const firstUserIdx = mappedHistory.findIndex((m) => m.role === "user");
+    const sanitizedHistory = firstUserIdx > 0 ? mappedHistory.slice(firstUserIdx) : mappedHistory;
 
     const chat = model.startChat({
-      systemInstruction: buildSystemPrompt(bioContext as BioContext, recentReceiptSummaries ?? []),
-      history: (history ?? []).map((m: { role: "user" | "assistant"; content: string }) => ({
-        role: m.role === "assistant" ? "model" : "user",
-        parts: [{ text: m.content }],
-      })),
+      systemInstruction: { role: "user" as const, parts: [{ text: buildSystemPrompt(bioContext as BioContext, recentReceiptSummaries ?? []) }] },
+      history: sanitizedHistory,
     });
 
     const result = await chat.sendMessage(message);
@@ -371,7 +451,7 @@ router.post("/aura/vision", async (req, res) => {
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = buildVisionSystemPrompt(challenge, bio);
 

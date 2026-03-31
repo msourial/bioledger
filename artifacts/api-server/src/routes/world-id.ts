@@ -101,6 +101,7 @@ router.post("/verify-world-id", async (req, res) => {
     }
 
     const data = await verifyRes.json() as { nullifier_hash?: string; verification_level?: string };
+    console.log("🌍 World ID ZK proof verified — nullifier:", data.nullifier_hash ?? nullifier_hash);
     res.json({
       success: true,
       nullifier_hash: data.nullifier_hash ?? nullifier_hash,
