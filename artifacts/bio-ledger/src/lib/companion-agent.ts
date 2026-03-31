@@ -89,6 +89,7 @@ export function gradeSession(stats: SessionStats, opts: {
   headStability: number;
   avgBlinkRate: number;
   postureWarningRatio: number; // 0-1, fraction of time with bad posture
+  demoMode?: boolean;
 }): SessionGradeResult {
   const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
   const sessionMins = stats.durationSeconds / 60;
@@ -114,10 +115,13 @@ export function gradeSession(stats: SessionStats, opts: {
     + postureScore * 0.3;
 
   // 5. Duration (10%) — ramp to 100 at 25min, plateau, gentle decay after 90min
-  const duration = sessionMins <= 25
-    ? (sessionMins / 25) * 100
-    : sessionMins <= 90 ? 100
-    : clamp(100 - (sessionMins - 90) * 0.5, 70, 100);
+  //    Demo mode: full marks for completing the demo session
+  const duration = opts.demoMode
+    ? 100
+    : sessionMins <= 25
+      ? (sessionMins / 25) * 100
+      : sessionMins <= 90 ? 100
+      : clamp(100 - (sessionMins - 90) * 0.5, 70, 100);
 
   // 6. Engagement (10%) — APM + blink rate health
   const apmNorm = clamp((stats.apm - 20) / 80 * 100, 0, 100);

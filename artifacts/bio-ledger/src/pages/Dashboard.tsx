@@ -392,6 +392,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       headStability: camera.visionMetrics?.headStability ?? 80,
       avgBlinkRate: camera.visionMetrics?.avgBlinkRate ?? 15,
       postureWarningRatio: camera.postureWarning ? 0.3 : 0.05,
+      demoMode: isDemo,
     });
     setSessionGrade(grade);
     setSessionBonusXP((prev) => prev + grade.xpBonus);
