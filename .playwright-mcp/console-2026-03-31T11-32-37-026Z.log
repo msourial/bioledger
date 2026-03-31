@@ -1,0 +1,52 @@
+[      94ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[     253ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[     343ms] TypeError: Cannot read properties of undefined (reading 'focusScore')
+    at ReceiptChainCard (http://localhost:5173/src/components/ReceiptChainCard.tsx?t=1774956744057:170:43)
+    at react-stack-bottom-frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17424:20)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:4206:24)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6619:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:7654:20)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:1485:72)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10868:98)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10728:43)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10711:13)
+    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10359:46)
+[     340ms] [WARNING] %s
+
+%s
+ An error occurred in the <ReceiptChainCard> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6228
+[    1212ms] [WARNING] W0331 11:32:38.236999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[    1325ms] [LOG] I0331 11:32:38.350000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[    1327ms] [WARNING] W0331 11:32:38.352000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[    1329ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[   18296ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[   18661ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[   18825ms] TypeError: Cannot read properties of undefined (reading 'durationSeconds')
+    at ReceiptChainCard (http://localhost:5173/src/components/ReceiptChainCard.tsx?t=1774956774805:381:180)
+    at react-stack-bottom-frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17424:20)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:4206:24)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6619:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:7654:20)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:1485:72)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10868:98)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10728:43)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10711:13)
+    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10359:46)
+[   18822ms] [WARNING] %s
+
+%s
+ An error occurred in the <ReceiptChainCard> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6228
+[   19541ms] [WARNING] W0331 11:32:56.564999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   19705ms] [LOG] I0331 11:32:56.728000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[   19707ms] [WARNING] W0331 11:32:56.732000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   19715ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[   38809ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[   39112ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516

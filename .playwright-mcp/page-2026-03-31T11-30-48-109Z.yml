@@ -1,0 +1,14 @@
+- generic [ref=e90]:
+  - generic [ref=e91]: "[plugin:runtime-error-plugin] Cannot access 'camera' before initialization"
+  - generic [ref=e92]: P:/bioledger/artifacts/bio-ledger/src/pages/Dashboard.tsx:118:24
+  - generic [ref=e93]: "116| }, 1000); 117| return () => clearInterval(interval); 118| }, [isSessionActive, camera.faceDetected]); | ^ 119| 120| // Track physical integrity over the session"
+  - generic [ref=e94]: at Dashboard P:/bioledger/artifacts/bio-ledger/src/pages/Dashboard.tsx:118:24
+  - generic [ref=e95]:
+    - text: Click outside, press Esc key, or fix the code to dismiss.
+    - text: You can also disable this overlay by setting
+    - code [ref=e96]: server.hmr.overlay
+    - text: to
+    - code [ref=e97]: "false"
+    - text: in
+    - code [ref=e98]: vite.config.ts
+    - text: .

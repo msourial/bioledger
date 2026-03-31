@@ -176,6 +176,8 @@ export interface WellnessCoachState {
   totalXP: number;
   dismissChallenge: () => void;
   completeChallenge: (id: string, xpOverride?: number) => void;
+  /** Force-trigger a challenge (for testing/debug) */
+  issueChallenge: (type: WellnessChallengeType) => void;
 }
 
 export function useWellnessCoach({
@@ -197,7 +199,7 @@ export function useWellnessCoach({
   // calling onComplete inside a setState updater (which React may call twice in StrictMode)
   const [pendingCompletion, setPendingCompletion] = useState<{ challenge: WellnessChallenge; xp: number } | null>(null);
 
-  // ── Cumulative active-session seconds (persists across Pomodoro resets) ──
+  // ── Cumulative active-session seconds ──────────────────────────────────────
   const [cumulativeSeconds, setCumulativeSeconds] = useState(0);
   useEffect(() => {
     if (!isSessionActive) return;
@@ -227,6 +229,27 @@ export function useWellnessCoach({
   const postureStartRef = useRef<number | null>(null);
   const activeChallengeRef = useRef<WellnessChallenge | null>(null);
   activeChallengeRef.current = activeChallenge;
+
+  // ── Full reset when a new session starts ────────────────────────────────────
+  const prevSessionActiveRef = useRef(false);
+  useEffect(() => {
+    if (isSessionActive && !prevSessionActiveRef.current) {
+      setCumulativeSeconds(0);
+      setHighApmSeconds(0);
+      setActiveChallenge(null);
+      setCompletedChallenges([]);
+      setTotalXP(0);
+      setPendingCompletion(null);
+      lastIssuedRef.current = {};
+      baselineHrvRef.current = null;
+      apmDropStartRef.current = null;
+      absenceStartRef.current = null;
+      wasAbsentRef.current = false;
+      postureStartRef.current = null;
+      console.log('🔄 Wellness coach reset for new session');
+    }
+    prevSessionActiveRef.current = isSessionActive;
+  }, [isSessionActive]);
 
   const canIssue = useCallback((type: WellnessChallengeType): boolean => {
     if (activeChallengeRef.current !== null) return false;
@@ -272,6 +295,19 @@ export function useWellnessCoach({
   const dismissChallenge = useCallback(() => {
     setActiveChallenge(null);
   }, []);
+
+  // ── Auto-dismiss stale challenges in demo mode (15s timeout) ──────────────
+  // This keeps the challenge queue flowing so multiple challenges fire in a 60s demo
+  useEffect(() => {
+    if (!isDemoMode || !activeChallengeRef.current) return;
+    const timer = setTimeout(() => {
+      if (activeChallengeRef.current) {
+        console.log(`⏭️ Auto-dismissing stale "${activeChallengeRef.current.type}" challenge (demo mode 15s timeout)`);
+        setActiveChallenge(null);
+      }
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, [activeChallenge, isDemoMode]);
 
   // ── HRV baseline capture + session reset ───────────────────────────────────
   useEffect(() => {
@@ -449,5 +485,6 @@ export function useWellnessCoach({
     totalXP,
     dismissChallenge,
     completeChallenge,
+    issueChallenge,
   };
 }

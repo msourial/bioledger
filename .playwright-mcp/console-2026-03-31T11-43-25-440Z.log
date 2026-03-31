@@ -1,0 +1,85 @@
+[     786ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[   32780ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[   88770ms] [WARNING] W0331 11:44:54.208999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   88821ms] [LOG] I0331 11:44:54.260999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[   88822ms] [WARNING] W0331 11:44:54.260999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   88823ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[   90572ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  120368ms] TypeError: (receipts ?? []).slice(...).map is not a function
+    at Dashboard (http://localhost:5173/src/pages/Dashboard.tsx?t=1774956795550:2034:64)
+    at react-stack-bottom-frame (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17424:20)
+    at renderWithHooks (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:4206:24)
+    at updateFunctionComponent (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6619:21)
+    at beginWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:7654:20)
+    at runWithFiberInDEV (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:1485:72)
+    at performUnitOfWork (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10868:98)
+    at workLoopSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10728:43)
+    at renderRootSync (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10711:13)
+    at performWorkOnRoot (http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:10359:46)
+[  120368ms] [WARNING] %s
+
+%s
+ An error occurred in the <Dashboard> component. Consider adding an error boundary to your tree to customize error handling behavior.
+Visit https://react.dev/link/error-boundaries to learn more about error boundaries. @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:6228
+[  155972ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  156226ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[  164890ms] [WARNING] W0331 11:46:10.328999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  164969ms] [LOG] I0331 11:46:10.408000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  164970ms] [WARNING] W0331 11:46:10.408999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  164971ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  167079ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  188412ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  188889ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[  200726ms] [WARNING] W0331 11:46:46.166000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  200801ms] [LOG] I0331 11:46:46.240000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  200801ms] [WARNING] W0331 11:46:46.240999 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  200802ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  202565ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  231267ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  231787ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[  241314ms] [WARNING] W0331 11:47:26.752999 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  241403ms] [LOG] I0331 11:47:26.841999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  241404ms] [WARNING] W0331 11:47:26.843000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  241404ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  243463ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  280186ms] [ERROR] Failed to load resource: the server responded with a status of 404 (Not Found) @ http://localhost:5173/api/aura/chat:0
+[  368993ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:864
+[  370605ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  371510ms] [WARNING] W0331 11:49:36.950000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  371578ms] [LOG] I0331 11:49:37.017999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  371579ms] [WARNING] W0331 11:49:37.019000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  371580ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  372113ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  378526ms] [LOG] [vite] server connection lost. Polling for restart... @ http://localhost:5173/@vite/client:864
+[  384428ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  385333ms] [WARNING] W0331 11:49:50.771000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  385436ms] [LOG] I0331 11:49:50.875000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  385437ms] [WARNING] W0331 11:49:50.876000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  385438ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  386092ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  399706ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  400865ms] [WARNING] W0331 11:50:06.304000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  400980ms] [LOG] I0331 11:50:06.419000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  400981ms] [WARNING] W0331 11:50:06.420000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  400983ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  402178ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  416915ms] [LOG] 🤖 AURA Agent signing ERC-8004 receipt: type=aura-insight @ http://localhost:5173/src/lib/companion-agent.ts:83
+[  416915ms] [LOG] 📊 Focus Fidelity Score: 43/100 @ http://localhost:5173/src/lib/companion-agent.ts:84
+[  416915ms] [LOG] 🔏 Signature: 2d84683bc1d9bd11... @ http://localhost:5173/src/lib/companion-agent.ts:85
+[  470940ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[  471827ms] [WARNING] W0331 11:51:17.267000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  471891ms] [LOG] I0331 11:51:17.331000 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[  471892ms] [WARNING] W0331 11:51:17.332000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[  471893ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[  472237ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388
+[  490303ms] [LOG] 🤖 AURA Agent signing ERC-8004 receipt: type=aura-insight @ http://localhost:5173/src/lib/companion-agent.ts:83
+[  490303ms] [LOG] 📊 Focus Fidelity Score: 42/100 @ http://localhost:5173/src/lib/companion-agent.ts:84
+[  490303ms] [LOG] 🔏 Signature: 89fe88f18dc12b4e... @ http://localhost:5173/src/lib/companion-agent.ts:85

@@ -1,0 +1,11 @@
+[    2644ms] [ERROR] wasm streaming compile failed: TypeError: WebAssembly compilation aborted: Network error: Response body loading was aborted @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:341
+[    2644ms] [ERROR] falling back to ArrayBuffer instantiation @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:342
+[    3214ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17986
+[    3749ms] [ERROR] Each child in a list should have a unique "key" prop.%s%s See https://react.dev/link/warning-keys for more information. 
+
+Check the render method of `Dashboard`.  @ http://localhost:5173/node_modules/.vite/deps/react-dom_client.js?v=1ec99336:17516
+[   59962ms] [WARNING] W0331 11:34:58.959000 2158768 face_landmarker_graph.cc:180] Sets FaceBlendshapesGraph acceleration to xnnpack by default. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   60949ms] [LOG] I0331 11:34:59.945999 2158768 gl_context.cc:407] GL version: 3.0 (OpenGL ES 3.0 (WebGL 2.0 (OpenGL ES 3.0 Chromium))), renderer: WebKit WebGL @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:4668
+[   60961ms] [WARNING] W0331 11:34:59.958000 2158768 gl_context.cc:1118] OpenGL error checking is disabled @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:8367
+[   60962ms] [LOG] Graph successfully started running. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1355
+[   66136ms] [ERROR] INFO: Created TensorFlow Lite XNNPACK delegate for CPU. @ https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.34/wasm/vision_wasm_internal.js:1388

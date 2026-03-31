@@ -28,6 +28,8 @@ import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
 import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
 import { useRSIRisk, type RiskLevel, type RSIRiskState } from '@/hooks/use-rsi-risk';
+import { useStretchDetection } from '@/hooks/use-stretch-detection';
+import { useDrinkDetection } from '@/hooks/use-drink-detection';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
@@ -35,6 +37,7 @@ import ReceiptChainCard from '@/components/ReceiptChainCard';
 import AuraChat from '@/components/AuraChat';
 import ExerciseBreakModal, { EXERCISES, type Exercise } from '@/components/ExerciseBreakModal';
 import MovementChallenge, { getRandomMovement, type Movement } from '@/components/MovementChallenge';
+import BreathingExercise from '@/components/BreathingExercise';
 import { cn, truncateHash } from '@/lib/utils';
 import { signWorkReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
@@ -183,6 +186,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   // RSI Risk scoring
   const rsiRisk = useRSIRisk(isSessionActive, apm, camera.faceDetected, isDemoMode);
+
+  // Breathing exercise overlay
+  const [breathingOpen, setBreathingOpen] = useState(false);
+
+  // Stretch gesture detection (arms raised above head) — activated by stretchChallengeActive state
+  const [stretchChallengeActive, setStretchChallengeActive] = useState(false);
+  const stretch = useStretchDetection(camera.noseY, stretchChallengeActive);
+
+  // Drink detection (head tilt back) — activated when hydration challenge is active
+  const [drinkChallengeActive, setDrinkChallengeActive] = useState(false);
+  const drink = useDrinkDetection(camera.headPitch, drinkChallengeActive);
 
   // Receipts — must be before exercise/break callbacks that use createReceiptMutation
   const { data: rawReceipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
@@ -421,6 +435,56 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     onComplete: handleWellnessComplete,
   });
 
+  // Breathing exercise: auto-open when breath challenge is active
+  useEffect(() => {
+    if (wellnessCoach.activeChallenge?.type === 'breath') {
+      setBreathingOpen(true);
+    }
+  }, [wellnessCoach.activeChallenge]);
+
+  const handleBreathingComplete = useCallback((xp: number, before: { hrv: number; blinkRate: number; headStability: number }, after: { hrv: number; blinkRate: number; headStability: number }) => {
+    // Complete the breath challenge if active
+    if (wellnessCoach.activeChallenge?.type === 'breath') {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, xp);
+    }
+    setBreathingOpen(false);
+    const hrvDelta = before.hrv > 0 ? Math.round(((after.hrv - before.hrv) / before.hrv) * 100) : 0;
+    const blinkDelta = before.blinkRate > 0 ? Math.round(((after.blinkRate - before.blinkRate) / before.blinkRate) * 100) : 0;
+    console.log(`🧠 Neurotech: Breathing exercise — HRV delta ${hrvDelta >= 0 ? '+' : ''}${hrvDelta}%, blink rate delta ${blinkDelta >= 0 ? '+' : ''}${blinkDelta}%`);
+  }, [wellnessCoach]);
+
+  // Drink detection: activate when hydration challenge is active
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge?.type === 'hydration';
+    setDrinkChallengeActive(active);
+    if (!active) drink.reset();
+  }, [isSessionActive, wellnessCoach.activeChallenge]);
+
+  // Auto-complete hydration challenge when drink detected for 3 seconds
+  useEffect(() => {
+    if (drink.drinkCompleted && wellnessCoach.activeChallenge?.type === 'hydration') {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      drink.reset();
+    }
+  }, [drink.drinkCompleted, wellnessCoach.activeChallenge]);
+
+  // Stretch detection: activate when a physical challenge is active
+  const STRETCH_CHALLENGE_TYPES = ['posture', 'movement', 'wrist-stretch', 'neck-roll', 'standing-break'];
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge != null &&
+      STRETCH_CHALLENGE_TYPES.includes(wellnessCoach.activeChallenge.type);
+    setStretchChallengeActive(active);
+    if (!active) stretch.reset();
+  }, [isSessionActive, wellnessCoach.activeChallenge]);
+
+  // Auto-complete challenge when stretch is held for 5 seconds
+  useEffect(() => {
+    if (stretch.stretchCompleted && wellnessCoach.activeChallenge) {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      stretch.reset();
+    }
+  }, [stretch.stretchCompleted, wellnessCoach.activeChallenge]);
+
   // Advance demo phase tooltip based on time remaining
   useEffect(() => {
     if (!isDemoMode || !isSessionActive) return;
@@ -495,34 +559,42 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       return next;
     });
 
-    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
+    try {
+      const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
 
-    setFilingPhase('FILING TO FILECOIN...');
-    const filecoin = await storeToFilecoin(signedReceipt);
+      setFilingPhase('FILING TO FILECOIN...');
+      const filecoin = await storeToFilecoin(signedReceipt);
 
-    setFilingPhase(null);
+      setFilingPhase(null);
 
-    createReceiptMutation.mutate(
-      {
-        data: {
-          nullifierHash,
-          sessionStats: stats,
-          companionSignature: signedReceipt.companionSignature,
-          receiptCid: filecoin.cid ?? undefined,
-          cidStatus: filecoin.status,
-          isDemo,
-          physicalIntegrity,
+      createReceiptMutation.mutate(
+        {
+          data: {
+            nullifierHash,
+            sessionStats: stats,
+            companionSignature: signedReceipt.companionSignature,
+            receiptCid: filecoin.cid ?? undefined,
+            cidStatus: filecoin.status,
+            isDemo,
+            physicalIntegrity,
+          },
         },
-      },
-      {
-        onSuccess: () => { setIsFiling(false); setTimeLeft(POMODORO_TIME); refetchReceipts(); },
-        onError: (err: unknown) => {
-          console.error('Failed to save receipt', err);
-          setIsFiling(false);
-          setTimeLeft(POMODORO_TIME);
-        },
-      }
-    );
+        {
+          onSuccess: () => { setIsFiling(false); setTimeLeft(POMODORO_TIME); refetchReceipts(); },
+          onError: (err: unknown) => {
+            console.error('Failed to save receipt', err);
+            setIsFiling(false);
+            setTimeLeft(POMODORO_TIME);
+          },
+        }
+      );
+    } catch (err) {
+      // Safety net: always clear filing state so user isn't stuck
+      console.error('[Bio-Ledger] Session complete error:', err);
+      setIsFiling(false);
+      setFilingPhase(null);
+      setTimeLeft(POMODORO_TIME);
+    }
   };
 
   const toggleTimer = () => setIsSessionActive((prev) => !prev);
@@ -533,12 +605,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setDemoPhaseIndex(0);
     setTimeLeft(DEMO_TIME);
     physicalIntegrityRef.current = true;
+    setSessionGrade(null);       // Clear previous grade overlay
+    setBreathingOpen(false);     // Close breathing exercise if open
+    setStretchChallengeActive(false);
+    setDrinkChallengeActive(false);
+    stretch.reset();
+    drink.reset();
     setIsSessionActive(true);
 
-    // Force-trigger a movement challenge after 8 seconds in demo
+    // In demo mode, auto-trigger hydration challenge at 10s so user sees drink detection quickly
+    // (don't use movement — it blocks the challenge queue for too long)
     setTimeout(() => {
-      setMovementChallenge(getRandomMovement());
-    }, 8000);
+      wellnessCoach.issueChallenge('hydration');
+    }, 10000);
   };
 
   const formatTime = (seconds: number) => {
@@ -814,6 +893,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         )}
       </AnimatePresence>
 
+      {/* Breathing Exercise Overlay */}
+      <BreathingExercise
+        isOpen={breathingOpen}
+        onClose={() => setBreathingOpen(false)}
+        onComplete={handleBreathingComplete}
+        hrv={hrv}
+        blinkRate={camera.visionMetrics.avgBlinkRate}
+        headStability={camera.visionMetrics.headStability}
+      />
+
       {/* XP Toast Popup */}
       <AnimatePresence>
         {xpToast && (
@@ -1039,6 +1128,91 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
         {/* Camera Lens */}
         <CameraLens camera={camera} isSessionActive={isSessionActive} />
+
+        {/* Gesture Detection Progress — Stretch or Drink */}
+        <AnimatePresence>
+          {stretchChallengeActive && !stretch.stretchCompleted && (
+            <motion.div
+              key="stretch-progress"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-amber-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-amber-300 font-bold uppercase tracking-wider">
+                  {stretch.isStretching ? '💪 Hold stretch...' : '🙆 Raise arms above head!'}
+                </span>
+                <span className="font-terminal text-xs text-amber-400 font-bold">{stretch.holdProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-300"
+                  animate={{ width: `${stretch.holdProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {stretch.isStretching ? 'Keep holding for 5 seconds...' : 'AURA will detect when you raise your arms'}
+              </div>
+            </motion.div>
+          )}
+          {drinkChallengeActive && !drink.drinkCompleted && (
+            <motion.div
+              key="drink-progress"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-blue-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-blue-300 font-bold uppercase tracking-wider">
+                  {drink.isDrinking ? '💧 Keep drinking...' : '🥤 Take a sip of water!'}
+                </span>
+                <span className="font-terminal text-xs text-blue-400 font-bold">{drink.holdProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-cyan-300"
+                  animate={{ width: `${drink.holdProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {drink.isDrinking ? 'AURA detects you tilting back — hold for 3 seconds...' : 'AURA will detect when you tilt your head back to drink'}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Debug: Force-trigger challenges + sensor readout (demo mode only) */}
+        {isDemoMode && isSessionActive && (
+          <div className="mx-4 sm:mx-8 mt-2 space-y-1">
+            {!wellnessCoach.activeChallenge && (
+              <div className="flex flex-wrap gap-1">
+                {(['hydration', 'breath', 'posture', 'movement'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => wellnessCoach.issueChallenge(type)}
+                    className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
+                      bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                  >
+                    Test: {type}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3 font-terminal text-[9px] text-muted-foreground/60">
+              <span>noseY: {camera.noseY?.toFixed(3) ?? 'null'}</span>
+              <span>pitch: {camera.headPitch?.toFixed(1) ?? 'null'}°</span>
+              <span>face: {camera.faceDetected ? 'yes' : 'no'}</span>
+              {stretchChallengeActive && <span className="text-amber-400">stretch: {stretch.holdProgress}%</span>}
+              {drinkChallengeActive && <span className="text-blue-400">drink: {drink.holdProgress}%</span>}
+            </div>
+          </div>
+        )}
 
         {/* Bio-Markers row */}
         <div className="relative z-10 px-4 sm:px-8 pt-4 sm:pt-6 flex gap-3">

@@ -22,6 +22,10 @@ export interface UseCameraResult {
   postureWarning: boolean;
   visionMetrics: VisionMetrics;
   error: string | null;
+  /** Nose tip Y position in normalized coordinates (0=top, 1=bottom). Used for stretch detection. */
+  noseY: number | null;
+  /** Head pitch angle in degrees. Negative = tilted back (drinking). Used for hydration detection. */
+  headPitch: number | null;
   /** Capture a full-res JPEG frame from the video stream; returns base64 string (no data-URL prefix) or null */
   captureFrame: () => string | null;
 }
@@ -104,6 +108,8 @@ export function useCamera(enabled: boolean): UseCameraResult {
     certifiedPresence: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [noseY, setNoseY] = useState<number | null>(null);
+  const [headPitch, setHeadPitch] = useState<number | null>(null);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -141,6 +147,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
         faceFound = true;
         lastPresenceRef.current = Date.now();
 
+        // Nose tip Y (landmark 1) — normalized 0=top, 1=bottom
+        const noseTip = result.faceLandmarks[0][1];
+        if (noseTip) setNoseY(noseTip.y);
+
         // ── Blink detection via blendshapes ──────────────────────────────
         if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
           const shapes = result.faceBlendshapes[0].categories;
@@ -166,6 +176,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
             Math.abs(pitch) < HEAD_TILT_THRESHOLD && Math.abs(roll) < HEAD_TILT_THRESHOLD;
           if (isStable) stableFramesRef.current += 1;
           setPostureWarning(!isStable);
+          setHeadPitch(pitch);
           const activity = Math.min(100, Math.round((Math.abs(pitch) + Math.abs(roll)) * 2));
           setFrameDiff(activity);
         }
@@ -291,6 +302,8 @@ export function useCamera(enabled: boolean): UseCameraResult {
     postureWarning,
     visionMetrics,
     error,
+    noseY,
+    headPitch,
     captureFrame,
   };
 }

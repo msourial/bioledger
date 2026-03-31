@@ -1,0 +1,14 @@
+- generic [ref=e3]:
+  - generic [ref=e4]: "[plugin:runtime-error-plugin] Cannot read properties of undefined (reading 'focusScore')"
+  - generic [ref=e5]: P:/bioledger/artifacts/bio-ledger/src/components/ReceiptChainCard.tsx:155:43
+  - generic [ref=e6]: "153| const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); 154| 155| const focusScore = receipt.sessionStats.focusScore; | ^ 156| const scoreGradient = 157| focusScore >= 80 ? 'from-emerald-400/20 to-violet-500/10' :"
+  - generic [ref=e7]: at ReceiptChainCard P:/bioledger/artifacts/bio-ledger/src/components/ReceiptChainCard.tsx:155:43
+  - generic [ref=e8]:
+    - text: Click outside, press Esc key, or fix the code to dismiss.
+    - text: You can also disable this overlay by setting
+    - code [ref=e9]: server.hmr.overlay
+    - text: to
+    - code [ref=e10]: "false"
+    - text: in
+    - code [ref=e11]: vite.config.ts
+    - text: .
