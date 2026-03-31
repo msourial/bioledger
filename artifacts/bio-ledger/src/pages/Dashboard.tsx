@@ -90,6 +90,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   // Session grade — computed at session end
   const [sessionGrade, setSessionGrade] = useState<SessionGradeResult | null>(null);
 
+  // Session bonus XP (from grade rewards, accumulated across sessions)
+  const [sessionBonusXP, setSessionBonusXP] = useState(0);
+
+  // Streak tracking — persists in localStorage
+  const [streak, setStreak] = useState(() => {
+    try {
+      const saved = localStorage.getItem('aura-streak');
+      if (saved) return JSON.parse(saved) as { current: number; longest: number; lastDate: string | null };
+    } catch { /* ignore */ }
+    return { current: 0, longest: 0, lastDate: null as string | null };
+  });
+  const [sessionsToday, setSessionsToday] = useState(0);
+
   // Screen time counter — accumulates while session active & face detected
   const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
   useEffect(() => {
@@ -381,6 +394,26 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       postureWarningRatio: camera.postureWarning ? 0.3 : 0.05,
     });
     setSessionGrade(grade);
+    setSessionBonusXP((prev) => prev + grade.xpBonus);
+    setSessionsToday((prev) => prev + 1);
+
+    // Update streak
+    const today = new Date().toISOString().slice(0, 10);
+    setStreak((prev) => {
+      const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+      let next;
+      if (prev.lastDate === today) {
+        next = prev; // already counted today
+      } else if (prev.lastDate === yesterday || prev.lastDate === null) {
+        const newCurrent = prev.current + 1;
+        next = { current: newCurrent, longest: Math.max(prev.longest, newCurrent), lastDate: today };
+      } else {
+        next = { current: 1, longest: Math.max(prev.longest, 1), lastDate: today }; // streak broken
+      }
+      localStorage.setItem('aura-streak', JSON.stringify(next));
+      console.log(`🔥 Streak: ${next.current} day(s) | Longest: ${next.longest}`);
+      return next;
+    });
 
     const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
 
@@ -674,7 +707,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   <div className="text-white font-bold">{sessionGrade.breakdown.engagement}</div>
                 </div>
               </div>
-              <div className="font-terminal text-xs text-muted-foreground/50 mt-6">
+              {streak.current > 0 && (
+                <div className="font-terminal text-sm text-orange-400 mt-4">
+                  🔥 {streak.current}-day streak{streak.current > 1 ? ` (best: ${streak.longest})` : ''}
+                </div>
+              )}
+              <div className="font-terminal text-xs text-muted-foreground/50 mt-4">
                 TAP TO DISMISS
               </div>
             </motion.div>
@@ -733,7 +771,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
             </div>
             {/* Wellness XP progress bar — always visible in header */}
             {(() => {
-              const xp = wellnessCoach.totalXP;
+              const xp = wellnessCoach.totalXP + sessionBonusXP;
               const level = Math.floor(xp / 100);
               const progress = xp % 100;
               return (
@@ -760,6 +798,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   {level > 0 && (
                     <span className="font-pixel text-[6px] text-amber-400/70 border border-amber-400/30 px-1 py-px rounded-sm">
                       LVL {level}
+                    </span>
+                  )}
+                  {streak.current > 0 && (
+                    <span className="font-pixel text-[6px] text-orange-400/80 border border-orange-400/30 px-1 py-px rounded-sm">
+                      {streak.current}d 🔥
                     </span>
                   )}
                 </div>
