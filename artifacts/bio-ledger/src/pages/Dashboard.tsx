@@ -29,6 +29,7 @@ import { useMotionLock } from '@/hooks/use-motion-lock';
 import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
 import { useRSIRisk, type RiskLevel, type RSIRiskState } from '@/hooks/use-rsi-risk';
 import { useStretchDetection } from '@/hooks/use-stretch-detection';
+import { useDrinkDetection } from '@/hooks/use-drink-detection';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
@@ -192,6 +193,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
   // Stretch gesture detection (arms raised above head) — activated by stretchChallengeActive state
   const [stretchChallengeActive, setStretchChallengeActive] = useState(false);
   const stretch = useStretchDetection(camera.noseY, stretchChallengeActive);
+
+  // Drink detection (head tilt back) — activated when hydration challenge is active
+  const [drinkChallengeActive, setDrinkChallengeActive] = useState(false);
+  const drink = useDrinkDetection(camera.headPitch, drinkChallengeActive);
 
   // Receipts — must be before exercise/break callbacks that use createReceiptMutation
   const { data: rawReceipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
@@ -447,6 +452,21 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     const blinkDelta = before.blinkRate > 0 ? Math.round(((after.blinkRate - before.blinkRate) / before.blinkRate) * 100) : 0;
     console.log(`🧠 Neurotech: Breathing exercise — HRV delta ${hrvDelta >= 0 ? '+' : ''}${hrvDelta}%, blink rate delta ${blinkDelta >= 0 ? '+' : ''}${blinkDelta}%`);
   }, [wellnessCoach]);
+
+  // Drink detection: activate when hydration challenge is active
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge?.type === 'hydration';
+    setDrinkChallengeActive(active);
+    if (!active) drink.reset();
+  }, [isSessionActive, wellnessCoach.activeChallenge]);
+
+  // Auto-complete hydration challenge when drink detected for 3 seconds
+  useEffect(() => {
+    if (drink.drinkCompleted && wellnessCoach.activeChallenge?.type === 'hydration') {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      drink.reset();
+    }
+  }, [drink.drinkCompleted, wellnessCoach.activeChallenge]);
 
   // Stretch detection: activate when a physical challenge is active
   const STRETCH_CHALLENGE_TYPES = ['posture', 'movement', 'wrist-stretch', 'neck-roll', 'standing-break'];
@@ -1094,10 +1114,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         {/* Camera Lens */}
         <CameraLens camera={camera} isSessionActive={isSessionActive} />
 
-        {/* Stretch Detection Progress */}
+        {/* Gesture Detection Progress — Stretch or Drink */}
         <AnimatePresence>
           {stretchChallengeActive && !stretch.stretchCompleted && (
             <motion.div
+              key="stretch-progress"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -1119,6 +1140,33 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
               </div>
               <div className="font-terminal text-[10px] text-muted-foreground mt-1">
                 {stretch.isStretching ? 'Keep holding for 5 seconds...' : 'AURA will detect when you raise your arms'}
+              </div>
+            </motion.div>
+          )}
+          {drinkChallengeActive && !drink.drinkCompleted && (
+            <motion.div
+              key="drink-progress"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-blue-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-blue-300 font-bold uppercase tracking-wider">
+                  {drink.isDrinking ? '💧 Keep drinking...' : '🥤 Take a sip of water!'}
+                </span>
+                <span className="font-terminal text-xs text-blue-400 font-bold">{drink.holdProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-blue-400 to-cyan-300"
+                  animate={{ width: `${drink.holdProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {drink.isDrinking ? 'AURA detects you tilting back — hold for 3 seconds...' : 'AURA will detect when you tilt your head back to drink'}
               </div>
             </motion.div>
           )}

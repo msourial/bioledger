@@ -24,6 +24,8 @@ export interface UseCameraResult {
   error: string | null;
   /** Nose tip Y position in normalized coordinates (0=top, 1=bottom). Used for stretch detection. */
   noseY: number | null;
+  /** Head pitch angle in degrees. Negative = tilted back (drinking). Used for hydration detection. */
+  headPitch: number | null;
   /** Capture a full-res JPEG frame from the video stream; returns base64 string (no data-URL prefix) or null */
   captureFrame: () => string | null;
 }
@@ -107,6 +109,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
   });
   const [error, setError] = useState<string | null>(null);
   const [noseY, setNoseY] = useState<number | null>(null);
+  const [headPitch, setHeadPitch] = useState<number | null>(null);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -173,6 +176,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
             Math.abs(pitch) < HEAD_TILT_THRESHOLD && Math.abs(roll) < HEAD_TILT_THRESHOLD;
           if (isStable) stableFramesRef.current += 1;
           setPostureWarning(!isStable);
+          setHeadPitch(pitch);
           const activity = Math.min(100, Math.round((Math.abs(pitch) + Math.abs(roll)) * 2));
           setFrameDiff(activity);
         }
@@ -299,6 +303,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     visionMetrics,
     error,
     noseY,
+    headPitch,
     captureFrame,
   };
 }
