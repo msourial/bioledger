@@ -107,15 +107,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const [xpToast, setXpToast] = useState<{ xp: number; type: string; method: string } | null>(null);
   const xpToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Screen time counter — accumulates while session active & face detected
+  // Screen time counter state (effect moved after camera hook initialization)
   const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
-  useEffect(() => {
-    if (!isSessionActive) { setScreenTimeSeconds(0); return; }
-    const interval = setInterval(() => {
-      if (camera.faceDetected) setScreenTimeSeconds((s) => s + 1);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [isSessionActive, camera.faceDetected]);
 
   // Track physical integrity over the session
   const physicalIntegrityRef = useRef(true);
@@ -198,6 +191,15 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       presenceLostAlerted.current = false;
     }
   }, [presenceLost]);
+
+  // Screen time counter — accumulates while session active & face detected
+  useEffect(() => {
+    if (!isSessionActive) { setScreenTimeSeconds(0); return; }
+    const interval = setInterval(() => {
+      if (camera.faceDetected) setScreenTimeSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSessionActive, camera.faceDetected]);
 
   const { data: receipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
   const createReceiptMutation = useCreateReceipt();
