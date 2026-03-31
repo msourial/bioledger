@@ -28,6 +28,7 @@ import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
 import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
 import { useRSIRisk, type RiskLevel, type RSIRiskState } from '@/hooks/use-rsi-risk';
+import { useStretchDetection } from '@/hooks/use-stretch-detection';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
 import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
@@ -183,6 +184,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   // RSI Risk scoring
   const rsiRisk = useRSIRisk(isSessionActive, apm, camera.faceDetected, isDemoMode);
+
+  // Stretch gesture detection (arms raised above head) — activated by stretchChallengeActive state
+  const [stretchChallengeActive, setStretchChallengeActive] = useState(false);
+  const stretch = useStretchDetection(camera.noseY, stretchChallengeActive);
 
   // Receipts — must be before exercise/break callbacks that use createReceiptMutation
   const { data: rawReceipts, isLoading: isReceiptsLoading, refetch: refetchReceipts } = useListReceipts({ nullifier: nullifierHash });
@@ -420,6 +425,23 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     onChallenge: handleWellnessChallenge,
     onComplete: handleWellnessComplete,
   });
+
+  // Stretch detection: activate when a physical challenge is active
+  const STRETCH_CHALLENGE_TYPES = ['posture', 'movement', 'wrist-stretch', 'neck-roll', 'standing-break'];
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge != null &&
+      STRETCH_CHALLENGE_TYPES.includes(wellnessCoach.activeChallenge.type);
+    setStretchChallengeActive(active);
+    if (!active) stretch.reset();
+  }, [isSessionActive, wellnessCoach.activeChallenge]);
+
+  // Auto-complete challenge when stretch is held for 5 seconds
+  useEffect(() => {
+    if (stretch.stretchCompleted && wellnessCoach.activeChallenge) {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      stretch.reset();
+    }
+  }, [stretch.stretchCompleted, wellnessCoach.activeChallenge]);
 
   // Advance demo phase tooltip based on time remaining
   useEffect(() => {
@@ -1039,6 +1061,36 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
         {/* Camera Lens */}
         <CameraLens camera={camera} isSessionActive={isSessionActive} />
+
+        {/* Stretch Detection Progress */}
+        <AnimatePresence>
+          {stretchChallengeActive && !stretch.stretchCompleted && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-amber-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-amber-300 font-bold uppercase tracking-wider">
+                  {stretch.isStretching ? '💪 Hold stretch...' : '🙆 Raise arms above head!'}
+                </span>
+                <span className="font-terminal text-xs text-amber-400 font-bold">{stretch.holdProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-300"
+                  animate={{ width: `${stretch.holdProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {stretch.isStretching ? 'Keep holding for 5 seconds...' : 'AURA will detect when you raise your arms'}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Bio-Markers row */}
         <div className="relative z-10 px-4 sm:px-8 pt-4 sm:pt-6 flex gap-3">

@@ -22,6 +22,8 @@ export interface UseCameraResult {
   postureWarning: boolean;
   visionMetrics: VisionMetrics;
   error: string | null;
+  /** Nose tip Y position in normalized coordinates (0=top, 1=bottom). Used for stretch detection. */
+  noseY: number | null;
   /** Capture a full-res JPEG frame from the video stream; returns base64 string (no data-URL prefix) or null */
   captureFrame: () => string | null;
 }
@@ -104,6 +106,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     certifiedPresence: false,
   });
   const [error, setError] = useState<string | null>(null);
+  const [noseY, setNoseY] = useState<number | null>(null);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -140,6 +143,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
       if (result.faceLandmarks && result.faceLandmarks.length > 0) {
         faceFound = true;
         lastPresenceRef.current = Date.now();
+
+        // Nose tip Y (landmark 1) — normalized 0=top, 1=bottom
+        const noseTip = result.faceLandmarks[0][1];
+        if (noseTip) setNoseY(noseTip.y);
 
         // ── Blink detection via blendshapes ──────────────────────────────
         if (result.faceBlendshapes && result.faceBlendshapes.length > 0) {
@@ -291,6 +298,7 @@ export function useCamera(enabled: boolean): UseCameraResult {
     postureWarning,
     visionMetrics,
     error,
+    noseY,
     captureFrame,
   };
 }
