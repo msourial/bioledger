@@ -91,6 +91,26 @@ const COOLDOWNS: Record<WellnessChallengeType, number> = {
   movement: 90 * 60_000,
 };
 
+// Demo mode: short cooldowns so multiple challenges fire in a 3-5 min video
+const DEMO_COOLDOWNS: Record<WellnessChallengeType, number> = {
+  hydration: 30_000,
+  posture: 30_000,
+  'eye-break': 30_000,
+  'typing-break': 30_000,
+  breath: 30_000,
+  movement: 30_000,
+};
+
+// Demo mode trigger thresholds (seconds)
+const DEMO_TRIGGERS = {
+  hydration: 45,       // 45s into session
+  posture: 15,         // 15s of bad posture
+  'eye-break': 90,     // 90s into session
+  'typing-break': 30,  // 30s of high APM
+  breath: 5,           // 5% HRV drop (instead of 10%)
+  movement: 120,       // 2 min into session
+} as const;
+
 // ─── Hook ─────────────────────────────────────────────────────────────────────
 
 interface WellnessCoachInput {
@@ -99,6 +119,8 @@ interface WellnessCoachInput {
   faceDetected: boolean;
   apm: number;
   hrv: number;
+  /** When true, use demo-friendly short timers for 3-5 min video recording */
+  demoMode?: boolean;
   /** Called when AURA issues a new wellness challenge */
   onChallenge: (challenge: WellnessChallenge) => void;
   /** Called when ANY challenge is completed (all paths: manual, vision, behavioral) */
@@ -119,6 +141,7 @@ export function useWellnessCoach({
   faceDetected,
   apm,
   hrv,
+  demoMode = false,
   onChallenge,
   onComplete,
 }: WellnessCoachInput): WellnessCoachState {
@@ -165,8 +188,9 @@ export function useWellnessCoach({
     if (activeChallengeRef.current !== null) return false;
     const last = lastIssuedRef.current[type];
     if (!last) return true;
-    return Date.now() - last >= COOLDOWNS[type];
-  }, []);
+    const cooldown = demoMode ? DEMO_COOLDOWNS[type] : COOLDOWNS[type];
+    return Date.now() - last >= cooldown;
+  }, [demoMode]);
 
   const issueChallenge = useCallback((type: WellnessChallengeType) => {
     if (!canIssue(type)) return;
@@ -225,36 +249,35 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, hrv]);
 
-  // ── Hydration: every 30 min of cumulative session ───────────────────────────
+  // ── Hydration: every 30 min (demo: 45s) of cumulative session ──────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const t = 30 * 60;
+    const t = demoMode ? DEMO_TRIGGERS.hydration : 30 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('hydration');
-  }, [isSessionActive, cumulativeSeconds, issueChallenge]);
+  }, [isSessionActive, cumulativeSeconds, issueChallenge, demoMode]);
 
-  // ── Eye-break: every 40 min of cumulative session ───────────────────────────
+  // ── Eye-break: every 40 min (demo: 90s) of cumulative session ─────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const t = 40 * 60;
+    const t = demoMode ? DEMO_TRIGGERS['eye-break'] : 40 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('eye-break');
-  }, [isSessionActive, cumulativeSeconds, issueChallenge]);
+  }, [isSessionActive, cumulativeSeconds, issueChallenge, demoMode]);
 
-  // ── Typing-break: PROACTIVE after 60 min of sustained high APM (≥30 apm) ──
-  // Trigger fires while user is still typing, before they stop; APM drop verifies the break
+  // ── Typing-break: PROACTIVE after 60 min (demo: 30s) of sustained high APM ──
   useEffect(() => {
     if (!isSessionActive) return;
-    const t = 60 * 60;
+    const t = demoMode ? DEMO_TRIGGERS['typing-break'] : 60 * 60;
     if (highApmSeconds >= t && highApmSeconds % t < 2) issueChallenge('typing-break');
-  }, [isSessionActive, highApmSeconds, issueChallenge]);
+  }, [isSessionActive, highApmSeconds, issueChallenge, demoMode]);
 
-  // ── Movement: every 90 min of cumulative session ────────────────────────────
+  // ── Movement: every 90 min (demo: 120s) of cumulative session ─────────────
   useEffect(() => {
     if (!isSessionActive) return;
-    const t = 90 * 60;
+    const t = demoMode ? DEMO_TRIGGERS.movement : 90 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('movement');
-  }, [isSessionActive, cumulativeSeconds, issueChallenge]);
+  }, [isSessionActive, cumulativeSeconds, issueChallenge, demoMode]);
 
-  // ── Posture: after 3 min of sustained bad posture ──────────────────────────
+  // ── Posture: after 3 min (demo: 15s) of sustained bad posture ──────────────
   useEffect(() => {
     if (!isSessionActive || !postureWarning) {
       postureStartRef.current = null;
@@ -262,22 +285,24 @@ export function useWellnessCoach({
     }
     if (postureStartRef.current === null) postureStartRef.current = Date.now();
     const elapsed = (Date.now() - postureStartRef.current) / 1000;
-    if (elapsed >= 180) {
+    const threshold = demoMode ? DEMO_TRIGGERS.posture : 180;
+    if (elapsed >= threshold) {
       issueChallenge('posture');
       postureStartRef.current = null;
     }
-  }, [isSessionActive, postureWarning, cumulativeSeconds, issueChallenge]);
+  }, [isSessionActive, postureWarning, cumulativeSeconds, issueChallenge, demoMode]);
 
-  // ── Breath: HRV drops ≥10% from session baseline ──────────────────────────
+  // ── Breath: HRV drops ≥10% (demo: 5%) from session baseline ────────────────
   useEffect(() => {
     if (!isSessionActive || baselineHrvRef.current === null) return;
     const baseline = baselineHrvRef.current;
     const drop = ((baseline - hrv) / baseline) * 100;
-    if (drop >= 10) {
+    const threshold = demoMode ? DEMO_TRIGGERS.breath : 10;
+    if (drop >= threshold) {
       issueChallenge('breath');
       baselineHrvRef.current = hrv;
     }
-  }, [isSessionActive, hrv, issueChallenge]);
+  }, [isSessionActive, hrv, issueChallenge, demoMode]);
 
   // ── Behavioral auto-verify: typing-break — near-zero APM for 30s ───────────
   useEffect(() => {

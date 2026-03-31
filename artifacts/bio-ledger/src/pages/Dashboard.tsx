@@ -20,6 +20,7 @@ import {
   ChevronUp,
   Package,
   Star,
+  Monitor,
 } from 'lucide-react';
 import { useMockBioData } from '@/lib/whoop-mock';
 import { useAPM } from '@/hooks/use-apm';
@@ -85,6 +86,16 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const [isDemoMode, setIsDemoMode] = useState(false);
   const isDemoRef = useRef(false);
   const [demoPhaseIndex, setDemoPhaseIndex] = useState(0);
+
+  // Screen time counter — accumulates while session active & face detected
+  const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
+  useEffect(() => {
+    if (!isSessionActive) { setScreenTimeSeconds(0); return; }
+    const interval = setInterval(() => {
+      if (camera.faceDetected) setScreenTimeSeconds((s) => s + 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isSessionActive, camera.faceDetected]);
 
   // Track physical integrity over the session
   const physicalIntegrityRef = useRef(true);
@@ -309,6 +320,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
     faceDetected: camera.faceDetected,
     apm,
     hrv,
+    demoMode: isDemoMode,
     onChallenge: handleWellnessChallenge,
     onComplete: handleWellnessComplete,
   });
@@ -834,6 +846,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               >
                 {formatTime(timeLeft)}
               </div>
+              {isSessionActive && (
+                <div className="flex items-center gap-1.5 mt-1 font-terminal text-xs text-muted-foreground">
+                  <Monitor className="w-3 h-3" />
+                  <span>SCREEN TIME: {formatTime(screenTimeSeconds)}</span>
+                </div>
+              )}
             </div>
             <div className="text-right pb-2 flex flex-col gap-1 items-end">
               <div className="flex items-center justify-end gap-1.5 mb-1">

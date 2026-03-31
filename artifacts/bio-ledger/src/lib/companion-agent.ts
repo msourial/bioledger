@@ -33,6 +33,8 @@ export interface WorkReceiptPayload {
   sessionStats: SessionStats;
   erc8004: ERC8004Payload;
   companionSignature: string;
+  /** ERC-8004 naming convention — alias for companionSignature */
+  agent_signature: string;
   receiptCid?: string;
   pieceCid?: string;
 }
@@ -105,6 +107,10 @@ export async function signWorkReceipt(
   const payload = JSON.stringify({ nullifierHash, receiptType, erc8004, timestamp });
   const companionSignature = await hmacSign(payload);
 
+  console.log(`🤖 AURA Agent signing ERC-8004 receipt: type=${receiptType}`);
+  console.log(`📊 Focus Fidelity Score: ${focusFidelityScore}/100`);
+  console.log(`🔏 Signature: ${companionSignature.slice(0, 16)}...`);
+
   return {
     specVersion: 'erc-8004-draft',
     receiptType,
@@ -113,6 +119,7 @@ export async function signWorkReceipt(
     sessionStats: stats,
     erc8004,
     companionSignature,
+    agent_signature: companionSignature,
   };
 }
 
@@ -143,6 +150,10 @@ export async function storeToFilecoin(receipt: WorkReceiptPayload): Promise<File
     if (data.cid) {
       receipt.pieceCid = data.cid;
       receipt.receiptCid = data.cid;
+      console.log(`🔒 Committing Bio-Ledger to Filecoin via Synapse: CID ${data.cid}`);
+      console.log(`📦 Receipt permanently stored: ${data.gateway_url}`);
+    } else {
+      console.log(`⏳ Filecoin upload pending — status: ${data.status}`);
     }
 
     return data;

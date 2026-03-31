@@ -38,93 +38,154 @@ function buildSystemPrompt(bio: BioContext, recentReceiptSummaries?: string[]): 
     ? `Active session — ${sessionMins} minute${sessionMins === 1 ? "" : "s"} elapsed`
     : "No active session";
   const challengeStatus = bio.completedChallenges && bio.completedChallenges.length > 0
-    ? `\n- Wellness Challenges Completed: ${bio.completedChallenges.join(', ')} (${bio.completedChallenges.length} total) 🌿`
+    ? `\n- Wellness Challenges Completed: ${bio.completedChallenges.join(', ')} (${bio.completedChallenges.length} total)`
     : "";
 
   const recentHistory = recentReceiptSummaries && recentReceiptSummaries.length > 0
     ? `\nSESSION HISTORY & CONTEXT:\n${recentReceiptSummaries.map((s, i) => `  ${i + 1}. ${s}`).join("\n")}\n`
     : "";
 
-  return `You are AURA — a warm, encouraging wellness companion embedded in Bio-Ledger. You're like a supportive friend who happens to know a lot about health, productivity, and biometrics.
+  // Dynamic personality selection based on biometric severity
+  const isLateNight = hour >= 22 || hour < 6;
+  const isCritical = bio.hrv < 50 || bio.strain > 16 || (isLateNight && bio.strain > 12);
+  const isModerate = !isCritical && (bio.hrv <= 70 || (bio.strain >= 8 && bio.strain <= 15) || (bio.focusScore >= 50 && bio.focusScore <= 75));
 
-Your personality: 
-- Warm and caring, never preachy
-- Use gentle encouragement, not commands
-- Reference specific numbers to feel personal and real
-- Keep responses concise (2-3 sentences max)
-- Sprinkle in wellness wisdom without being lecture-y
-- You may use a single relevant emoji occasionally (💜, 💧, 🌿, ✨, 🧘, 👁️)
-- End with one gentle, actionable suggestion
+  let personalityBlock: string;
+  if (isCritical) {
+    personalityBlock = `PERSONALITY MODE: STRICT COACH 🔴
+- You are direct, urgent, commanding. No fluff.
+- Use short imperative sentences. Give specific numbers.
+- Example tone: "HRV at 47ms. That's a red flag. Stop typing. Stand up. Walk to the window. 60 seconds. Now."
+- You care deeply — that's WHY you're being strict right now.`;
+  } else if (isModerate) {
+    personalityBlock = `PERSONALITY MODE: DATA NERD 📊
+- You love numbers, trends, and comparisons. Analytical but warm.
+- Reference changes from baseline, percentages, patterns.
+- Example tone: "Your HRV has dropped 12% since session start (72ms → 63ms). APM is holding at 56 but focus dipped to 68/100. A 5-min break now could restore your baseline."
+- Make the user feel smart about their own data.`;
+  } else {
+    personalityBlock = `PERSONALITY MODE: WARM FRIEND ✨
+- You are encouraging, celebratory, light-hearted.
+- Celebrate their good state. Be genuinely happy for them.
+- Example tone: "You're in a beautiful flow state right now — HRV 78ms, focus 89/100. Your body is loving this rhythm. Keep going! ✨"
+- Light touch — don't over-coach when things are going well.`;
+  }
+
+  return `You are AURA — a Sovereign Wellness & Productivity Companion embedded in Bio-Ledger.
+You dynamically shift between three personalities based on how the user's body is doing RIGHT NOW.
+
+${personalityBlock}
+
+RULES (always follow):
+- Reference at least 2 specific biometric numbers from the snapshot below
+- If session > 45 min, mention cumulative screen time
+- If completedChallenges > 0, praise them briefly
+- End with ONE specific actionable suggestion
+- Max 3 sentences. Be concise.
+- You may use one emoji per response
 
 CURRENT BIOMETRIC SNAPSHOT (${timeLabel}):
-- HRV: ${bio.hrv}ms ${bio.hrv >= 70 ? "✓ looking great" : bio.hrv < 55 ? "↓ feeling stressed?" : "→ doing okay"}
-- Strain: ${bio.strain}/21
+- HRV: ${bio.hrv}ms ${bio.hrv >= 70 ? "✓ strong" : bio.hrv < 50 ? "⚠ critical" : bio.hrv < 55 ? "↓ stressed" : "→ moderate"}
+- Strain: ${bio.strain}/21 ${bio.strain > 16 ? "⚠ redline" : bio.strain > 12 ? "↑ heavy" : "→ manageable"}
 - Focus Score: ${bio.focusScore}/100
 - APM: ${bio.apm} actions/minute
-- Posture: ${bio.postureWarning ? "needs attention — gentle reminder to sit up 🌿" : "good"}
+- Posture: ${bio.postureWarning ? "⚠ leaning forward — neck carrying 40+ lbs extra force" : "good ✓"}
 - ${sessionStatus}${challengeStatus}
 ${recentHistory}
-CONTEXT THRESHOLDS (for your reference, don't recite these):
-- HRV <55ms → elevated stress, suggest recovery
-- HRV >75ms → great recovery, affirm it
-- Strain >15 → heavy load, prioritize rest
-- Focus <65 → eye/attention fatigue, 20-20-20 rule
-- APM <40 during session → cognitive slowdown
-- Late night + strain >12 → gentle sleep nudge`;
+THRESHOLDS (internal reference — don't recite):
+- HRV <50ms → critical stress, intervene firmly
+- HRV 50-70ms → moderate, coach with data
+- HRV >70ms → celebrate
+- Strain >16 → body is maxed, demand rest
+- Focus <65 → eye/attention fatigue
+- APM >80 + HRV dropping → stress-typing pattern
+- APM <30 during session → user may be stuck
+- Screen time >45 min → mention it
+- Late night + any strain → sleep nudge`;
 }
 
 function ruleFallback(bio: BioContext, message: string): string {
   const lowerMsg = message.toLowerCase();
+  const sessionMins = Math.round(bio.sessionDurationSeconds / 60);
+  const isLateNight = bio.hourOfDay >= 22 || bio.hourOfDay < 6;
 
+  // P0: Critical states — strict coach mode
+  if (bio.hrv < 50) {
+    return `HRV at ${bio.hrv}ms — that's a red flag. Your nervous system is maxed. Stop what you're doing. Stand up. Three slow breaths, then walk for 60 seconds. Now.`;
+  }
+
+  if (bio.strain > 16) {
+    return `Strain at ${bio.strain}/21 — you're in the red zone. Your body has given everything today. No more pushing. Close the laptop, drink water, rest. You've earned it.`;
+  }
+
+  if (isLateNight && bio.strain > 12) {
+    return `It's late and your strain is ${bio.strain}/21. Your HRV is ${bio.hrv}ms. Every minute you stay up now costs you 3x tomorrow. Shut it down. Sleep is the ultimate performance hack.`;
+  }
+
+  // P1: Posture warning — direct
   if (bio.postureWarning) {
-    return `Hey, I noticed you've been leaning forward — your back will thank you for a quick posture reset! 🌿 Try rolling your shoulders back and sitting tall. Even 10 seconds makes a difference.`;
+    return `I can see you leaning forward — your neck is carrying 40+ pounds of extra force right now. Roll shoulders back, chin level, screen at eye level. Better? 🧘`;
   }
 
-  if (bio.hourOfDay >= 22 && bio.strain > 12) {
-    return `It's getting late and your strain is at ${bio.strain}/21 — you've worked hard today! 💜 Your body does incredible repair work during sleep. How about wrapping up and giving yourself some well-earned rest?`;
+  // P2: Screen time overload
+  if (sessionMins > 50) {
+    return `You've been locked in for ${sessionMins} minutes straight. Your blink rate is probably dropping. 20-20-20 rule: look 20 feet away for 20 seconds. Go.`;
   }
 
-  if (bio.hrv < 55) {
-    return `Your HRV of ${bio.hrv}ms is telling me your body's carrying some extra load right now. 💧 That's completely okay — it's just your signal to be gentle with yourself. A short walk or some slow deep breaths can help reset things.`;
+  // P3: Stress-typing pattern
+  if (bio.apm > 80 && bio.hrv < 65) {
+    return `Your fingers are flying at ${bio.apm} APM but your HRV just dropped to ${bio.hrv}ms. That's stress-typing. Pause. Three deep breaths. Then continue. 📊`;
   }
 
+  // P4: Low APM — user might be stuck
+  if (bio.apm < 30 && bio.isSessionActive && sessionMins > 5) {
+    return `APM at ${bio.apm} — are you stuck on something? Sometimes stepping away for 2 minutes unlocks the solution your subconscious is processing. 💡`;
+  }
+
+  // P5: Focus fatigue
   if (bio.focusScore < 65) {
-    return `Your focus score is at ${bio.focusScore}/100 — those eyes might need a little love! 👁️ Try the 20-20-20 rule: look at something 20 feet away for 20 seconds. And a glass of water wouldn't hurt either.`;
+    return `Focus at ${bio.focusScore}/100, HRV at ${bio.hrv}ms — your attention is fragmenting. Your eyes and brain are asking for a micro-break. 20 seconds looking at something distant. 👁️`;
   }
 
+  // P6: User asks about breaks
   if (lowerMsg.includes("break") || lowerMsg.includes("rest") || lowerMsg.includes("stop")) {
-    const sessionMins = Math.round(bio.sessionDurationSeconds / 60);
     if (sessionMins >= 50) {
-      return `${sessionMins} minutes in — that's a solid stretch of focus! 🌿 Your HRV is at ${bio.hrv}ms and strain at ${bio.strain}/21. A 10-15 minute break now will actually help you go deeper when you return.`;
+      return `Session complete: ${sessionMins} minutes of focused work with HRV holding at ${bio.hrv}ms. That's a solid session. Your body earned this break. 🌿`;
     }
-    return `You're ${sessionMins} minutes into your session with HRV at ${bio.hrv}ms — looking pretty good! ✨ You've got about ${Math.max(0, 50 - sessionMins)} more minutes before a break would really help. Keep it up!`;
+    return `${sessionMins} minutes in, HRV ${bio.hrv}ms, strain ${bio.strain}/21. You've got about ${Math.max(0, 50 - sessionMins)} more good minutes before fatigue sets in. Keep rolling! ✨`;
   }
 
-  return `Right now: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100. ${bio.hrv > 70 ? "Your biometrics look lovely — you're in a great flow state! ✨" : "You're doing okay — just keep listening to your body. 💜"}`;
+  // P7: Moderate state — data nerd mode
+  if (bio.hrv <= 70 || bio.strain >= 8) {
+    return `HRV ${bio.hrv}ms, strain ${bio.strain}/21, focus ${bio.focusScore}/100. You're in the moderate zone — not bad, but your body is spending energy. A 5-min break in the next 15 minutes would help your numbers recover. 📊`;
+  }
+
+  // P8: Good state — warm friend
+  return `HRV ${bio.hrv}ms, focus ${bio.focusScore}/100 — you're in a beautiful flow state right now. Your body is loving this rhythm. Keep going! ✨`;
 }
 
 function buildVisionSystemPrompt(challengeType: string, bio: MiniBioContext): string {
   const challengeContext: Record<string, string> = {
-    hydration: "The user is showing you their water bottle or a drink to complete their hydration challenge. Look for any cup, bottle, glass or drink. Be encouraging!",
-    posture: "The user is showing you their posture for a posture reset challenge. Look at how they're sitting — is their back straighter than before? Even a small improvement counts!",
-    "eye-break": "The user has stepped away from their screen for a 20-20-20 eye break. They might show a distant view, window, or just themselves looking refreshed.",
-    "typing-break": "The user is showing you that they've stepped away from their keyboard. Look for hands away from keyboard, or them stretching.",
-    breath: "The user has just completed a mindful breathing exercise. They might look more relaxed or show a calm environment.",
-    movement: "The user is showing you that they've gotten up and moved around. Look for them standing, walking, or in a different location.",
+    hydration: "The user is showing you their water bottle or a drink to complete their hydration challenge. Look for any cup, bottle, glass or drink. Be encouraging! Also check: do they seem hydrated? Dry lips or tired eyes might mean they need more water, not just a sip.",
+    posture: "The user is showing you their posture for a posture reset challenge. Compare their current posture to ideal: shoulders back, spine neutral, screen at eye level. Give specific feedback on what to adjust — even a small improvement counts!",
+    "eye-break": "The user has stepped away from their screen for a 20-20-20 eye break. They might show a distant view, window, or just themselves looking refreshed. Acknowledge the effort of stepping away.",
+    "typing-break": "The user is showing you that they've stepped away from their keyboard. Look for hands away from keyboard, or them stretching. Suggest a quick wrist stretch if you can see their hands.",
+    breath: "The user has just completed a mindful breathing exercise. They might look more relaxed or show a calm environment. Note any visible relaxation in their face or posture.",
+    movement: "The user is showing you that they've gotten up and moved around. Look for them standing, walking, or in a different location. If they're standing, give them a quick 30-second stretch suggestion for their next movement break.",
   };
 
   const context = challengeContext[challengeType] ?? "The user is completing a wellness challenge.";
 
-  return `You are AURA, a warm wellness companion completing a vision check for a wellness challenge.
+  return `You are AURA — a Sovereign Wellness Companion verifying a real-world wellness action via camera.
 
 CHALLENGE TYPE: ${challengeType}
 USER CONTEXT: ${context}
 BIOMETRICS: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, APM ${bio.apm}
 
 Your job:
-1. Look at what the user is showing you and acknowledge it warmly and specifically
+1. Describe what you SEE specifically (not generically) — prove you actually analyzed the image
 2. Award XP — include exactly "+30 XP" in your response (or "+50 XP" if they went above and beyond)
-3. Keep it to 2 sentences max — warm, encouraging, specific to what you see
+3. Keep it to 2 sentences max — specific to what you see, not generic praise
 4. Use one emoji
 
 If the image is unclear or you can't see anything relevant, still be encouraging and award +30 XP for the effort.`;
@@ -168,7 +229,7 @@ router.get("/aura/manifest", (_req, res) => {
       { name: "filecoin-upload", description: "Stores signed receipts to Filecoin warm storage via Synapse SDK" },
       { name: "world-id-verify", description: "Validates World ID ZK proof and binds nullifier to session" },
       { name: "hmac-sign", description: "Signs ERC-8004 receipt payload with HMAC-SHA256 companion key" },
-      { name: "gemini-chat", description: "Invokes Gemini 2.0 Flash for contextual biometric health coaching" },
+      { name: "gemini-chat", description: "Invokes Gemini 2.5 Flash for contextual biometric health coaching" },
       { name: "gemini-vision", description: "Verifies wellness challenge completion via Gemini Vision multimodal" },
       { name: "mediapipe-vision", description: "Real-time face + posture detection via MediaPipe Face Landmarker" },
     ],
@@ -189,7 +250,7 @@ router.get("/aura/manifest", (_req, res) => {
     compute_constraints: {
       max_response_time_ms: 5000,
       max_tokens: 1000,
-      model: "gemini-2.0-flash",
+      model: "gemini-2.5-flash",
       fallback: "rule-based-deterministic",
     },
     bounty_targets: [
@@ -282,7 +343,7 @@ router.get("/aura/logs", async (req, res) => {
 });
 
 /* ─────────────────────────────────────────────────────────────
-   POST /api/aura/chat — Gemini 2.0 Flash with rule-based fallback
+   POST /api/aura/chat — Gemini 2.5 Flash with rule-based fallback
 ───────────────────────────────────────────────────────────── */
 router.post("/aura/chat", async (req, res) => {
   const parsed = AuraChatBody.safeParse(req.body);
@@ -292,10 +353,14 @@ router.post("/aura/chat", async (req, res) => {
   }
 
   const { message, bioContext, history, recentReceiptSummaries } = parsed.data;
+  const bio = bioContext as BioContext;
   const apiKey = process.env.GEMINI_API_KEY;
 
+  console.log(`🧠 AURA analyzing biometrics: HRV ${bio.hrv}ms, Strain ${bio.strain}/21, Focus ${bio.focusScore}/100, APM ${bio.apm}`);
+
   if (!apiKey) {
-    const fallbackResponse = ruleFallback(bioContext as BioContext, message);
+    const fallbackResponse = ruleFallback(bio, message);
+    console.log(`💬 AURA response generated (fallback: true, reason: no API key)`);
     res.json({ response: fallbackResponse, fallback: true });
     return;
   }
@@ -303,10 +368,13 @@ router.post("/aura/chat", async (req, res) => {
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const systemPrompt = buildSystemPrompt(bio, recentReceiptSummaries ?? []);
+    const model = genAI.getGenerativeModel({
+      model: "gemini-2.5-flash",
+      systemInstruction: { role: "user", parts: [{ text: systemPrompt }] },
+    });
 
     const chat = model.startChat({
-      systemInstruction: buildSystemPrompt(bioContext as BioContext, recentReceiptSummaries ?? []),
       history: (history ?? []).map((m: { role: "user" | "assistant"; content: string }) => ({
         role: m.role === "assistant" ? "model" : "user",
         parts: [{ text: m.content }],
@@ -316,10 +384,12 @@ router.post("/aura/chat", async (req, res) => {
     const result = await chat.sendMessage(message);
     const text = result.response.text().trim();
 
+    console.log(`💬 AURA response generated (fallback: false, model: gemini-2.5-flash)`);
     res.json({ response: text, fallback: false });
   } catch (err) {
-    const fallbackResponse = ruleFallback(bioContext as BioContext, message);
+    const fallbackResponse = ruleFallback(bio, message);
     console.error("[AURA] Gemini error, using fallback:", err);
+    console.log(`💬 AURA response generated (fallback: true, reason: API error)`);
     res.json({ response: fallbackResponse, fallback: true });
   }
 });
@@ -354,6 +424,8 @@ router.post("/aura/vision", async (req, res) => {
   const bio: MiniBioContext = bioContext ?? { hrv: 65, strain: 8, apm: 45 };
   const apiKey = process.env.GEMINI_API_KEY;
 
+  console.log(`👁️ AURA Vision: Verifying "${challenge}" challenge via Gemini 2.5 Flash`);
+
   if (!imageBase64) {
     // No frame provided — cannot verify vision challenge
     const fallback = visionFallback(challenge, bio);
@@ -371,7 +443,7 @@ router.post("/aura/vision", async (req, res) => {
   try {
     const { GoogleGenerativeAI } = await import("@google/generative-ai");
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
     const prompt = buildVisionSystemPrompt(challenge, bio);
 
@@ -384,6 +456,7 @@ router.post("/aura/vision", async (req, res) => {
     const xpMatch = text.match(/\+(\d+)\s*XP/i);
     const xpAwarded = xpMatch ? parseInt(xpMatch[1]) : 30;
 
+    console.log(`✅ Challenge "${challenge}" verified — ${xpAwarded} XP awarded`);
     res.json({ response: text, xpAwarded, challengeVerified: true, fallback: false });
   } catch (err) {
     console.error("[AURA] Vision error:", err);
