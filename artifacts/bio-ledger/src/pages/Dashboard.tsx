@@ -103,6 +103,10 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   });
   const [sessionsToday, setSessionsToday] = useState(0);
 
+  // XP toast popup — shows floating "+XP" animation when challenge completed
+  const [xpToast, setXpToast] = useState<{ xp: number; type: string; method: string } | null>(null);
+  const xpToastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Screen time counter — accumulates while session active & face detected
   const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
   useEffect(() => {
@@ -328,6 +332,27 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
 
   const handleWellnessComplete = useCallback((challenge: WellnessChallenge, xpAwarded: number) => {
     void signWellnessReceipt(challenge.type, xpAwarded);
+
+    // Show XP toast popup
+    if (xpToastTimerRef.current) clearTimeout(xpToastTimerRef.current);
+    setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
+    xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
+
+    // Play reward sound (Web Audio API — no file needed)
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.setValueAtTime(523, ctx.currentTime);       // C5
+      osc.frequency.setValueAtTime(659, ctx.currentTime + 0.1); // E5
+      osc.frequency.setValueAtTime(784, ctx.currentTime + 0.2); // G5
+      gain.gain.setValueAtTime(0.15, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.4);
+    } catch { /* audio not available */ }
   }, [signWellnessReceipt]);
 
   const wellnessCoach = useWellnessCoach({
@@ -708,8 +733,30 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                   <div className="text-white font-bold">{sessionGrade.breakdown.engagement}</div>
                 </div>
               </div>
+              {/* Reward summary */}
+              <div className="mt-4 px-4 py-3 rounded-lg border border-white/10 max-w-xs mx-auto text-left"
+                style={{ background: 'rgba(255,255,255,0.04)' }}
+              >
+                <div className="font-terminal text-[10px] text-muted-foreground uppercase tracking-widest mb-2">Session Rewards</div>
+                <div className="flex justify-between font-terminal text-xs">
+                  <span className="text-muted-foreground">Challenges done</span>
+                  <span className="text-white font-bold">{wellnessCoach.completedChallenges.length}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1">
+                  <span className="text-muted-foreground">Challenge XP</span>
+                  <span className="text-amber-400 font-bold">+{wellnessCoach.totalXP}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1">
+                  <span className="text-muted-foreground">Grade bonus</span>
+                  <span className="text-amber-400 font-bold">+{sessionGrade.xpBonus}</span>
+                </div>
+                <div className="flex justify-between font-terminal text-xs mt-1 pt-1 border-t border-white/10">
+                  <span className="text-white font-bold">Total earned</span>
+                  <span className="text-amber-300 font-bold">+{wellnessCoach.totalXP + sessionGrade.xpBonus} XP</span>
+                </div>
+              </div>
               {streak.current > 0 && (
-                <div className="font-terminal text-sm text-orange-400 mt-4">
+                <div className="font-terminal text-sm text-orange-400 mt-3">
                   🔥 {streak.current}-day streak{streak.current > 1 ? ` (best: ${streak.longest})` : ''}
                 </div>
               )}
@@ -717,6 +764,41 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 TAP TO DISMISS
               </div>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* XP Toast Popup — floats up when challenge completed */}
+      <AnimatePresence>
+        {xpToast && (
+          <motion.div
+            key={`xp-${Date.now()}`}
+            initial={{ opacity: 0, y: 30, scale: 0.8 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -40, scale: 0.6 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+            className="fixed top-20 left-1/2 -translate-x-1/2 z-[60] pointer-events-none"
+          >
+            <div className="flex flex-col items-center gap-1 px-6 py-3 rounded-xl border border-amber-400/40"
+              style={{ background: 'rgba(15,10,40,0.9)', backdropFilter: 'blur(16px)', boxShadow: '0 0 30px rgba(250,204,21,0.3)' }}
+            >
+              <motion.div
+                initial={{ scale: 0.5 }}
+                animate={{ scale: [0.5, 1.3, 1] }}
+                transition={{ duration: 0.4 }}
+                className="text-3xl font-pixel font-bold text-amber-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)]"
+              >
+                +{xpToast.xp} XP
+              </motion.div>
+              <div className="font-terminal text-xs text-amber-300/80 uppercase tracking-wider">
+                {xpToast.method === 'vision' ? '👁️ Verified by AURA Vision'
+                  : xpToast.method === 'behavioral' ? '🧠 Auto-detected — great job listening!'
+                  : '✅ Challenge completed'}
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground capitalize">
+                {xpToast.type.replace('-', ' ')}
+              </div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
