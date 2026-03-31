@@ -176,6 +176,8 @@ export interface WellnessCoachState {
   totalXP: number;
   dismissChallenge: () => void;
   completeChallenge: (id: string, xpOverride?: number) => void;
+  /** Force-trigger a challenge (for testing/debug) */
+  issueChallenge: (type: WellnessChallengeType) => void;
 }
 
 export function useWellnessCoach({
@@ -449,5 +451,6 @@ export function useWellnessCoach({
     totalXP,
     dismissChallenge,
     completeChallenge,
+    issueChallenge,
   };
 }

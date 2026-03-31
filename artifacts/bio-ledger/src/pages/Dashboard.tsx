@@ -1172,6 +1172,22 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
           )}
         </AnimatePresence>
 
+        {/* Debug: Force-trigger challenges (demo mode only) */}
+        {isDemoMode && isSessionActive && !wellnessCoach.activeChallenge && (
+          <div className="mx-4 sm:mx-8 mt-2 flex flex-wrap gap-1">
+            {(['hydration', 'breath', 'posture', 'movement'] as const).map((type) => (
+              <button
+                key={type}
+                onClick={() => wellnessCoach.issueChallenge(type)}
+                className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
+                  bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+              >
+                Test: {type}
+              </button>
+            ))}
+          </div>
+        )}
+
         {/* Bio-Markers row */}
         <div className="relative z-10 px-4 sm:px-8 pt-4 sm:pt-6 flex gap-3">
           <PixelPanel className="flex-1">
