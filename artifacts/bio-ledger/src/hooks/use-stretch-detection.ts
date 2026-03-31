@@ -12,7 +12,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  */
 
 const BASELINE_CAPTURE_MS = 3000;  // Capture baseline for 3 seconds
-const Y_DELTA_THRESHOLD = 0.12;     // 12% of frame height = significant drop
+const Y_DELTA_THRESHOLD = 0.06;     // 6% of frame height = noticeable head drop
 const HOLD_DURATION_MS = 5000;      // Must hold stretch for 5 seconds
 
 export interface StretchDetectionResult {

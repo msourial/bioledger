@@ -1,0 +1,26 @@
+- generic [ref=e2]:
+  - generic [ref=e5]:
+    - img [ref=e8]
+    - heading "Bio-Ledger" [level=1] [ref=e11]
+    - heading "Your Verifiable Life Graph" [level=2] [ref=e12]
+    - generic [ref=e13]:
+      - generic [ref=e14]: "1"
+      - generic [ref=e16]: "2"
+    - generic [ref=e17]:
+      - generic [ref=e18]: WORLD ID
+      - generic [ref=e19]: BIO-SOURCES
+    - generic [ref=e20]: WORLD ID — DEMO MODE
+    - generic [ref=e60]:
+      - generic [ref=e61]:
+        - img [ref=e62]
+        - text: Identity confirmed!
+      - paragraph [ref=e66]: Connect your wearables to unlock certified health metrics, or try the demo to explore.
+      - button "Connect WHOOP / Apple Health" [ref=e67] [cursor=pointer]:
+        - img [ref=e68]
+        - text: Connect WHOOP / Apple Health
+      - button "Try demo first" [ref=e72] [cursor=pointer]:
+        - img [ref=e73]
+        - text: Try demo first
+      - paragraph [ref=e80]: WHOOP API V2 · Apple HealthKit · Privacy-first
+  - region "Notifications (F8)":
+    - list

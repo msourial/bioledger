@@ -1,0 +1,14 @@
+- generic [ref=e3]:
+  - generic [ref=e4]: "[plugin:runtime-error-plugin] Cannot read properties of undefined (reading 'hrv')"
+  - generic [ref=e5]: P:/bioledger/artifacts/bio-ledger/src/components/ReceiptChainCard.tsx:49:34
+  - generic [ref=e6]: "47 | label: 'Body Metrics Captured', 48 | sublabel: 'WHOOP · MediaPipe Vision', 49 | value: `HRV ${sessionStats.hrv}ms · Strain ${sessionStats.strain} · Focus ${sessionStats.focusScore}/100`, | ^ 50 | detail: physicalIntegrity ? 'Physical presence confirmed ✓' : 'Session presence incomplete', 51 | status: physicalIntegrity ? 'ok' : 'partial',"
+  - generic [ref=e7]: at buildWorkSteps P:/bioledger/artifacts/bio-ledger/src/components/ReceiptChainCard.tsx:49:34 at ReceiptChainCard P:/bioledger/artifacts/bio-ledger/src/components/ReceiptChainCard.tsx:144:101
+  - generic [ref=e8]:
+    - text: Click outside, press Esc key, or fix the code to dismiss.
+    - text: You can also disable this overlay by setting
+    - code [ref=e9]: server.hmr.overlay
+    - text: to
+    - code [ref=e10]: "false"
+    - text: in
+    - code [ref=e11]: vite.config.ts
+    - text: .

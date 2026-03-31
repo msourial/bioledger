@@ -597,6 +597,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setDemoPhaseIndex(0);
     setTimeLeft(DEMO_TIME);
     physicalIntegrityRef.current = true;
+    setSessionGrade(null);       // Clear previous grade overlay
+    setBreathingOpen(false);     // Close breathing exercise if open
+    setStretchChallengeActive(false);
+    setDrinkChallengeActive(false);
+    stretch.reset();
+    drink.reset();
     setIsSessionActive(true);
 
     // Force-trigger a movement challenge after 8 seconds in demo
@@ -1172,19 +1178,30 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
           )}
         </AnimatePresence>
 
-        {/* Debug: Force-trigger challenges (demo mode only) */}
-        {isDemoMode && isSessionActive && !wellnessCoach.activeChallenge && (
-          <div className="mx-4 sm:mx-8 mt-2 flex flex-wrap gap-1">
-            {(['hydration', 'breath', 'posture', 'movement'] as const).map((type) => (
-              <button
-                key={type}
-                onClick={() => wellnessCoach.issueChallenge(type)}
-                className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
-                  bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-              >
-                Test: {type}
-              </button>
-            ))}
+        {/* Debug: Force-trigger challenges + sensor readout (demo mode only) */}
+        {isDemoMode && isSessionActive && (
+          <div className="mx-4 sm:mx-8 mt-2 space-y-1">
+            {!wellnessCoach.activeChallenge && (
+              <div className="flex flex-wrap gap-1">
+                {(['hydration', 'breath', 'posture', 'movement'] as const).map((type) => (
+                  <button
+                    key={type}
+                    onClick={() => wellnessCoach.issueChallenge(type)}
+                    className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
+                      bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
+                  >
+                    Test: {type}
+                  </button>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-3 font-terminal text-[9px] text-muted-foreground/60">
+              <span>noseY: {camera.noseY?.toFixed(3) ?? 'null'}</span>
+              <span>pitch: {camera.headPitch?.toFixed(1) ?? 'null'}°</span>
+              <span>face: {camera.faceDetected ? 'yes' : 'no'}</span>
+              {stretchChallengeActive && <span className="text-amber-400">stretch: {stretch.holdProgress}%</span>}
+              {drinkChallengeActive && <span className="text-blue-400">drink: {drink.holdProgress}%</span>}
+            </div>
           </div>
         )}
 

@@ -11,7 +11,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * 3. Returns progress (0-100) and completion state
  */
 
-const PITCH_THRESHOLD = -15;       // degrees — head tilted back this much = drinking
+const PITCH_THRESHOLD = 15;        // degrees — absolute head tilt to detect drinking
 const HOLD_DURATION_MS = 3000;     // Must hold tilt for 3 seconds
 
 export interface DrinkDetectionResult {
@@ -52,11 +52,17 @@ export function useDrinkDetection(
     if (!isActive || headPitch === null || completedRef.current) return;
 
     const now = Date.now();
-    const isTiltedBack = headPitch < PITCH_THRESHOLD;
+    // Detect head tilted back: pitch can be negative OR positive depending on
+    // MediaPipe's coordinate convention, so check absolute value > threshold
+    // AND that it's specifically a backward tilt (away from screen)
+    const isTiltedBack = Math.abs(headPitch) > PITCH_THRESHOLD && headPitch < 0;
+    // Fallback: if pitch is positive when tilting back, also accept that
+    const isTiltedBackAlt = headPitch > PITCH_THRESHOLD;
+    const isDrinkingNow = isTiltedBack || isTiltedBackAlt;
 
-    setIsDrinking(isTiltedBack);
+    setIsDrinking(isDrinkingNow);
 
-    if (isTiltedBack) {
+    if (isDrinkingNow) {
       if (drinkStartRef.current === null) {
         drinkStartRef.current = now;
         console.log(`💧 Drink detected! Head pitch: ${headPitch.toFixed(1)}°`);

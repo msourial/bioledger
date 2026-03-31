@@ -1,0 +1,24 @@
+- generic [ref=e2]:
+  - generic [ref=e5]:
+    - img [ref=e8]
+    - heading "Bio-Ledger" [level=1] [ref=e11]
+    - heading "Your Verifiable Life Graph" [level=2] [ref=e12]
+    - generic [ref=e13]:
+      - generic [ref=e14]: "1"
+      - generic [ref=e16]: "2"
+    - generic [ref=e17]:
+      - generic [ref=e18]: WORLD ID
+      - generic [ref=e19]: BIO-SOURCES
+    - generic [ref=e20]: WORLD ID — DEMO MODE
+    - generic [ref=e23]:
+      - paragraph [ref=e24]: Welcome! Prove your humanity privately with World ID, then unlock your personal wellness data.
+      - button "Sign in with World ID" [ref=e25] [cursor=pointer]:
+        - img [ref=e26]
+        - text: Sign in with World ID
+      - generic [ref=e32]: then
+      - button "Connect bio-sources" [disabled] [ref=e33]:
+        - img [ref=e34]
+        - text: Connect bio-sources
+      - paragraph [ref=e36]: Privacy-first · ZK proofs · Your data, forever yours
+  - region "Notifications (F8)":
+    - list
