@@ -199,7 +199,7 @@ export function useWellnessCoach({
   // calling onComplete inside a setState updater (which React may call twice in StrictMode)
   const [pendingCompletion, setPendingCompletion] = useState<{ challenge: WellnessChallenge; xp: number } | null>(null);
 
-  // ── Cumulative active-session seconds (persists across Pomodoro resets) ──
+  // ── Cumulative active-session seconds ──────────────────────────────────────
   const [cumulativeSeconds, setCumulativeSeconds] = useState(0);
   useEffect(() => {
     if (!isSessionActive) return;
@@ -229,6 +229,27 @@ export function useWellnessCoach({
   const postureStartRef = useRef<number | null>(null);
   const activeChallengeRef = useRef<WellnessChallenge | null>(null);
   activeChallengeRef.current = activeChallenge;
+
+  // ── Full reset when a new session starts ────────────────────────────────────
+  const prevSessionActiveRef = useRef(false);
+  useEffect(() => {
+    if (isSessionActive && !prevSessionActiveRef.current) {
+      setCumulativeSeconds(0);
+      setHighApmSeconds(0);
+      setActiveChallenge(null);
+      setCompletedChallenges([]);
+      setTotalXP(0);
+      setPendingCompletion(null);
+      lastIssuedRef.current = {};
+      baselineHrvRef.current = null;
+      apmDropStartRef.current = null;
+      absenceStartRef.current = null;
+      wasAbsentRef.current = false;
+      postureStartRef.current = null;
+      console.log('🔄 Wellness coach reset for new session');
+    }
+    prevSessionActiveRef.current = isSessionActive;
+  }, [isSessionActive]);
 
   const canIssue = useCallback((type: WellnessChallengeType): boolean => {
     if (activeChallengeRef.current !== null) return false;
