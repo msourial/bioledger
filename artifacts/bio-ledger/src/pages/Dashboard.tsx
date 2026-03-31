@@ -559,34 +559,42 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       return next;
     });
 
-    const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
+    try {
+      const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics, 'sustainable-flow-session');
 
-    setFilingPhase('FILING TO FILECOIN...');
-    const filecoin = await storeToFilecoin(signedReceipt);
+      setFilingPhase('FILING TO FILECOIN...');
+      const filecoin = await storeToFilecoin(signedReceipt);
 
-    setFilingPhase(null);
+      setFilingPhase(null);
 
-    createReceiptMutation.mutate(
-      {
-        data: {
-          nullifierHash,
-          sessionStats: stats,
-          companionSignature: signedReceipt.companionSignature,
-          receiptCid: filecoin.cid ?? undefined,
-          cidStatus: filecoin.status,
-          isDemo,
-          physicalIntegrity,
+      createReceiptMutation.mutate(
+        {
+          data: {
+            nullifierHash,
+            sessionStats: stats,
+            companionSignature: signedReceipt.companionSignature,
+            receiptCid: filecoin.cid ?? undefined,
+            cidStatus: filecoin.status,
+            isDemo,
+            physicalIntegrity,
+          },
         },
-      },
-      {
-        onSuccess: () => { setIsFiling(false); setTimeLeft(POMODORO_TIME); refetchReceipts(); },
-        onError: (err: unknown) => {
-          console.error('Failed to save receipt', err);
-          setIsFiling(false);
-          setTimeLeft(POMODORO_TIME);
-        },
-      }
-    );
+        {
+          onSuccess: () => { setIsFiling(false); setTimeLeft(POMODORO_TIME); refetchReceipts(); },
+          onError: (err: unknown) => {
+            console.error('Failed to save receipt', err);
+            setIsFiling(false);
+            setTimeLeft(POMODORO_TIME);
+          },
+        }
+      );
+    } catch (err) {
+      // Safety net: always clear filing state so user isn't stuck
+      console.error('[Bio-Ledger] Session complete error:', err);
+      setIsFiling(false);
+      setFilingPhase(null);
+      setTimeLeft(POMODORO_TIME);
+    }
   };
 
   const toggleTimer = () => setIsSessionActive((prev) => !prev);
@@ -605,10 +613,11 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     drink.reset();
     setIsSessionActive(true);
 
-    // Force-trigger a movement challenge after 8 seconds in demo
+    // In demo mode, auto-trigger hydration challenge at 10s so user sees drink detection quickly
+    // (don't use movement — it blocks the challenge queue for too long)
     setTimeout(() => {
-      setMovementChallenge(getRandomMovement());
-    }, 8000);
+      wellnessCoach.issueChallenge('hydration');
+    }, 10000);
   };
 
   const formatTime = (seconds: number) => {

@@ -275,6 +275,19 @@ export function useWellnessCoach({
     setActiveChallenge(null);
   }, []);
 
+  // ── Auto-dismiss stale challenges in demo mode (15s timeout) ──────────────
+  // This keeps the challenge queue flowing so multiple challenges fire in a 60s demo
+  useEffect(() => {
+    if (!isDemoMode || !activeChallengeRef.current) return;
+    const timer = setTimeout(() => {
+      if (activeChallengeRef.current) {
+        console.log(`⏭️ Auto-dismissing stale "${activeChallengeRef.current.type}" challenge (demo mode 15s timeout)`);
+        setActiveChallenge(null);
+      }
+    }, 15_000);
+    return () => clearTimeout(timer);
+  }, [activeChallenge, isDemoMode]);
+
   // ── HRV baseline capture + session reset ───────────────────────────────────
   useEffect(() => {
     if (isSessionActive && baselineHrvRef.current === null) {
