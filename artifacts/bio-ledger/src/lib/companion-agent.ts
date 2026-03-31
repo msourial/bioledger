@@ -46,6 +46,112 @@ export interface FilecoinResult {
   message?: string;
 }
 
+// ─── Session Grade Types ──────────────────────────────────────────────────────
+
+export type SessionGradeLetter = 'S' | 'A' | 'B' | 'C' | 'D';
+
+export interface SessionGradeResult {
+  grade: SessionGradeLetter;
+  score: number;
+  xpBonus: number;
+  breakdown: {
+    focus: number;
+    biometric: number;
+    challenge: number;
+    presence: number;
+    duration: number;
+    engagement: number;
+  };
+  title: string;
+  subtitle: string;
+}
+
+const GRADE_CONFIG: Record<SessionGradeLetter, { min: number; xp: number; title: string; subtitle: string }> = {
+  S: { min: 90, xp: 150, title: 'EXCEPTIONAL', subtitle: 'Perfect flow state achieved' },
+  A: { min: 75, xp: 100, title: 'EXCELLENT', subtitle: 'Strong session, body and mind in sync' },
+  B: { min: 60, xp: 70, title: 'GOOD', subtitle: 'Solid work, room to optimize' },
+  C: { min: 40, xp: 40, title: 'AVERAGE', subtitle: 'Your body needed more breaks' },
+  D: { min: 0, xp: 20, title: 'NEEDS WORK', subtitle: 'Listen to your body next time' },
+};
+
+/**
+ * Grade a completed session using a composite score inspired by
+ * Whoop Recovery (HRV-heavy), Oura Readiness (multi-factor), and
+ * gaming S/A/B/C/D systems.
+ *
+ * Weights: Focus 25% | Biometrics 20% | Challenge compliance 20% |
+ *          Presence 15% | Duration 10% | Engagement 10%
+ */
+export function gradeSession(stats: SessionStats, opts: {
+  challengesCompleted: number;
+  challengesTriggered: number;
+  certifiedPresence: boolean;
+  headStability: number;
+  avgBlinkRate: number;
+  postureWarningRatio: number; // 0-1, fraction of time with bad posture
+}): SessionGradeResult {
+  const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+  const sessionMins = stats.durationSeconds / 60;
+
+  // 1. Focus (25%) — already 0-100
+  const focus = clamp(stats.focusScore, 0, 100);
+
+  // 2. Biometrics (20%) — HRV stability + strain optimality
+  const hrvNorm = clamp((stats.hrv / 90) * 100, 0, 100); // 90ms = excellent
+  const optimalStrain = 6;
+  const strainNorm = clamp(100 - (Math.abs(stats.strain - optimalStrain) / optimalStrain) * 60, 0, 100);
+  const biometric = hrvNorm * 0.7 + strainNorm * 0.3;
+
+  // 3. Challenge compliance (20%) — % of challenges completed
+  const challenge = opts.challengesTriggered > 0
+    ? (opts.challengesCompleted / opts.challengesTriggered) * 100
+    : 80; // neutral if none triggered
+
+  // 4. Presence & posture (15%)
+  const postureScore = clamp(100 - opts.postureWarningRatio * 300, 0, 100);
+  const presence = (opts.certifiedPresence ? 100 : 0) * 0.4
+    + opts.headStability * 0.3
+    + postureScore * 0.3;
+
+  // 5. Duration (10%) — ramp to 100 at 25min, plateau, gentle decay after 90min
+  const duration = sessionMins <= 25
+    ? (sessionMins / 25) * 100
+    : sessionMins <= 90 ? 100
+    : clamp(100 - (sessionMins - 90) * 0.5, 70, 100);
+
+  // 6. Engagement (10%) — APM + blink rate health
+  const apmNorm = clamp((stats.apm - 20) / 80 * 100, 0, 100);
+  const blinkNorm = clamp(100 - Math.abs(opts.avgBlinkRate - 17) / 17 * 100, 0, 100);
+  const engagement = apmNorm * 0.6 + blinkNorm * 0.4;
+
+  // Composite
+  const raw = focus * 0.25 + biometric * 0.20 + challenge * 0.20
+            + presence * 0.15 + duration * 0.10 + engagement * 0.10;
+  const score = Math.round(clamp(raw, 0, 100));
+
+  const grade: SessionGradeLetter = score >= 90 ? 'S' : score >= 75 ? 'A' : score >= 60 ? 'B' : score >= 40 ? 'C' : 'D';
+  const config = GRADE_CONFIG[grade];
+
+  console.log(`🏆 Session Grade: ${grade} (${score}/100) — ${config.title}`);
+  console.log(`   Focus: ${Math.round(focus)} | Bio: ${Math.round(biometric)} | Challenge: ${Math.round(challenge)} | Presence: ${Math.round(presence)} | Duration: ${Math.round(duration)} | Engagement: ${Math.round(engagement)}`);
+
+  return {
+    grade,
+    score,
+    xpBonus: config.xp,
+    breakdown: {
+      focus: Math.round(focus),
+      biometric: Math.round(biometric),
+      challenge: Math.round(challenge),
+      presence: Math.round(presence),
+      duration: Math.round(duration),
+      engagement: Math.round(engagement),
+    },
+    title: config.title,
+    subtitle: config.subtitle,
+  };
+}
+
 const AGENT_ID = 'AURA-AGENT-V1';
 
 const API = import.meta.env.VITE_API_BASE_URL ?? '';

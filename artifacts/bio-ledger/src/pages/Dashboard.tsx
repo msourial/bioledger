@@ -33,7 +33,7 @@ import ProvenanceModal, { type MetricKey } from '@/components/ProvenanceModal';
 import ReceiptChainCard from '@/components/ReceiptChainCard';
 import AuraChat from '@/components/AuraChat';
 import { cn, truncateHash } from '@/lib/utils';
-import { signWorkReceipt, storeToFilecoin, type FilecoinResult } from '@/lib/companion-agent';
+import { signWorkReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
 
 interface DashboardProps {
@@ -86,6 +86,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
   const [isDemoMode, setIsDemoMode] = useState(false);
   const isDemoRef = useRef(false);
   const [demoPhaseIndex, setDemoPhaseIndex] = useState(0);
+
+  // Session grade — computed at session end
+  const [sessionGrade, setSessionGrade] = useState<SessionGradeResult | null>(null);
 
   // Screen time counter — accumulates while session active & face detected
   const [screenTimeSeconds, setScreenTimeSeconds] = useState(0);
@@ -368,6 +371,17 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
       motionLock.physicalIntegrity &&
       camera.faceDetected;
 
+    // Compute session grade
+    const grade = gradeSession(stats, {
+      challengesCompleted: wellnessCoach.completedChallenges.length,
+      challengesTriggered: wellnessCoach.completedChallenges.length + (wellnessCoach.activeChallenge ? 1 : 0),
+      certifiedPresence: camera.visionMetrics?.certifiedPresence ?? camera.faceDetected,
+      headStability: camera.visionMetrics?.headStability ?? 80,
+      avgBlinkRate: camera.visionMetrics?.avgBlinkRate ?? 15,
+      postureWarningRatio: camera.postureWarning ? 0.3 : 0.05,
+    });
+    setSessionGrade(grade);
+
     const signedReceipt = await signWorkReceipt(nullifierHash, stats, strainAtSessionStart.current, camera.visionMetrics);
 
     setFilingPhase('FILING TO FILECOIN...');
@@ -587,6 +601,83 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
                 <span className="font-terminal text-sm text-muted-foreground">{filingPhase}</span>
               </div>
             </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Session Grade Overlay */}
+      <AnimatePresence>
+        {sessionGrade && !isFiling && !isSessionActive && (
+          <motion.div
+            key="session-grade"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="absolute inset-0 z-50 flex items-center justify-center"
+            style={{ background: 'rgba(10,6,30,0.85)', backdropFilter: 'blur(20px)' }}
+            onClick={() => setSessionGrade(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.3, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.2 }}
+              className="text-center cursor-pointer"
+              onClick={() => setSessionGrade(null)}
+            >
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ type: 'spring', stiffness: 150, damping: 10, delay: 0.4 }}
+                className={cn(
+                  'text-9xl font-pixel font-bold leading-none mb-2',
+                  sessionGrade.grade === 'S' ? 'text-yellow-400 drop-shadow-[0_0_40px_rgba(250,204,21,0.8)]'
+                    : sessionGrade.grade === 'A' ? 'text-green-400 drop-shadow-[0_0_30px_rgba(74,222,128,0.6)]'
+                    : sessionGrade.grade === 'B' ? 'text-blue-400 drop-shadow-[0_0_25px_rgba(96,165,250,0.6)]'
+                    : sessionGrade.grade === 'C' ? 'text-orange-400 drop-shadow-[0_0_20px_rgba(251,146,60,0.5)]'
+                    : 'text-red-400 drop-shadow-[0_0_20px_rgba(248,113,113,0.5)]'
+                )}
+              >
+                {sessionGrade.grade}
+              </motion.div>
+              <div className="font-terminal text-lg font-bold text-white/90 tracking-widest uppercase mb-1">
+                {sessionGrade.title}
+              </div>
+              <div className="font-terminal text-sm text-muted-foreground mb-4">
+                {sessionGrade.subtitle}
+              </div>
+              <div className="font-terminal text-2xl font-bold text-primary mb-4">
+                {sessionGrade.score}/100 — +{sessionGrade.xpBonus} XP
+              </div>
+              <div className="grid grid-cols-3 gap-3 max-w-xs mx-auto text-xs font-terminal">
+                <div className="text-center">
+                  <div className="text-muted-foreground">Focus</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.focus}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground">Biometric</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.biometric}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground">Challenge</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.challenge}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground">Presence</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.presence}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground">Duration</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.duration}</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-muted-foreground">Engagement</div>
+                  <div className="text-white font-bold">{sessionGrade.breakdown.engagement}</div>
+                </div>
+              </div>
+              <div className="font-terminal text-xs text-muted-foreground/50 mt-6">
+                TAP TO DISMISS
+              </div>
+            </motion.div>
           </motion.div>
         )}
       </AnimatePresence>
