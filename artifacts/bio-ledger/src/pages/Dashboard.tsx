@@ -1257,7 +1257,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, onLogout 
               onNudgeClear={() => setProactiveNudge(null)}
               auraInjectMessage={challengeNudge}
               onAuraInjectClear={() => setChallengeNudge(null)}
-              recentReceipts={(receipts ?? []).slice(-3).map((r) => ({
+              recentReceipts={(Array.isArray(receipts) ? receipts : []).slice(-3).map((r) => ({
                 receiptType: r.receiptType ?? 'work',
                 hrv: (r.sessionStats as { hrv?: number }).hrv ?? 0,
                 strain: (r.sessionStats as { strain?: number }).strain ?? 0,
