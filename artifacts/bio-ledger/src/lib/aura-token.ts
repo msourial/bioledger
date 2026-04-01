@@ -38,6 +38,11 @@ export async function mintAuraTokens(
   toAddress: `0x${string}`,
   xpAmount: number,
 ): Promise<{ hash: string | null; amount: string }> {
+  // Skip if contract not deployed yet
+  if (AURA_TOKEN_ADDRESS === '0x0000000000000000000000000000000000000000') {
+    return { hash: null, amount: String(xpAmount) };
+  }
+
   const amount = parseEther(String(xpAmount)); // 1 XP = 1 AURA (18 decimals)
 
   try {

@@ -8,8 +8,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
  * accumulate enough shakes within the time window to complete.
  */
 
-const MIN_SHAKES = 6;           // Need 6 direction changes (3 up-down cycles)
-const SHAKE_WINDOW_MS = 5000;   // Must happen within 5 seconds
+const MIN_SHAKES = 20;          // Need 20 direction changes (10 up-down cycles)
+const SHAKE_WINDOW_MS = 15000;  // Must happen within 15 seconds
 const MIN_DELTA = 0.015;        // Minimum Y movement to count as direction change
 
 export interface WristShakeResult {

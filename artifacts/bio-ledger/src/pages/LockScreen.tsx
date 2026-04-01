@@ -146,11 +146,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       setWidgetOpen(true);
     } catch (err) {
       console.error('[World ID] RP context error:', err);
-      setVerifyError('World ID unavailable — continuing in Demo Mode.');
-      setTimeout(() => {
-        setVerifyError(null);
-        runSimulation();
-      }, 1500);
+      runSimulation();
     }
   };
 
@@ -202,12 +198,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
   const handleError = useCallback(() => {
     setWidgetOpen(false);
-    setVerifyError('World ID verification failed — falling back to Demo Mode.');
-    // Auto-fallback to simulation after a brief delay so judges see the real widget attempted
-    setTimeout(() => {
-      setVerifyError(null);
-      runSimulation();
-    }, 1500);
+    runSimulation();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -466,6 +457,25 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 <p className="font-pixel text-[8px] text-muted-foreground/40 mt-1">
                   Privacy-first · Your coach, your data, your proof
                 </p>
+
+                <div className="w-full h-px bg-white/10 mt-5 mb-3" />
+                <button
+                  onClick={() => {
+                    const hash = generateNullifier();
+                    localStorage.setItem('bio_ledger_nullifier', hash);
+                    onVerify({
+                      nullifierHash: hash,
+                      walletAddress: null,
+                      bioSourceConnected: false,
+                      wearableSource: 'demo',
+                    });
+                  }}
+                  className="w-full py-2.5 rounded-xl font-terminal text-xs font-bold uppercase tracking-wider cursor-pointer transition-all
+                    text-amber-300 bg-amber-500/10 border border-amber-400/30
+                    hover:bg-amber-500/20 hover:text-amber-200 hover:shadow-[0_0_16px_rgba(245,158,11,0.2)]"
+                >
+                  ⚡ Skip to Demo — No account needed
+                </button>
               </motion.div>
             )}
 
