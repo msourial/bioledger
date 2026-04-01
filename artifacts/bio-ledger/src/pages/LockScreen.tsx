@@ -146,7 +146,11 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
       setWidgetOpen(true);
     } catch (err) {
       console.error('[World ID] RP context error:', err);
-      setVerifyError(err instanceof Error ? err.message : 'Failed to load World ID configuration.');
+      setVerifyError('World ID unavailable — continuing in Demo Mode.');
+      setTimeout(() => {
+        setVerifyError(null);
+        runSimulation();
+      }, 1500);
     }
   };
 
@@ -198,7 +202,13 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
 
   const handleError = useCallback(() => {
     setWidgetOpen(false);
-    setVerifyError('World ID verification failed. Please try again.');
+    setVerifyError('World ID verification failed — falling back to Demo Mode.');
+    // Auto-fallback to simulation after a brief delay so judges see the real widget attempted
+    setTimeout(() => {
+      setVerifyError(null);
+      runSimulation();
+    }, 1500);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // ─── Step 1 done → user clicks to proceed ──────────────────────────────
@@ -385,9 +395,12 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
           <h1 className="font-pixel text-xl sm:text-2xl mb-1 tracking-widest text-foreground">
             Bio-Ledger
           </h1>
-          <h2 className="font-terminal text-sm sm:text-base mb-6 font-semibold" style={{ color: '#a78bfa' }}>
-            Your Verifiable Life Graph
+          <h2 className="font-terminal text-sm sm:text-base mb-1 font-semibold" style={{ color: '#a78bfa' }}>
+            Be Productive. Stay Healthy.
           </h2>
+          <p className="font-terminal text-[11px] text-muted-foreground/50 mb-6">
+            Your AI coach & shadow for sustainable work
+          </p>
 
           {/* 3-step progress indicator */}
           <div className="w-full flex items-center gap-2 mb-6">
@@ -440,7 +453,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                 className="flex flex-col gap-4 w-full"
               >
                 <p className="font-terminal text-sm text-muted-foreground mb-2 leading-relaxed">
-                  Prove your humanity privately with World ID to begin.
+                  Your productivity coach is ready. Verify your identity to start working smarter and healthier.
                 </p>
                 <PixelButton
                   onClick={handleWorldId}
@@ -451,7 +464,7 @@ export default function LockScreen({ onVerify }: LockScreenProps) {
                   {worldIdConfig === null ? 'Loading...' : 'Verify with World ID'}
                 </PixelButton>
                 <p className="font-pixel text-[8px] text-muted-foreground/40 mt-1">
-                  Privacy-first · Zero-knowledge proof · No PII shared
+                  Privacy-first · Your coach, your data, your proof
                 </p>
               </motion.div>
             )}

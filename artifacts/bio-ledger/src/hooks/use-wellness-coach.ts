@@ -45,9 +45,9 @@ const CHALLENGE_TEMPLATES: Record<WellnessChallengeType, Omit<WellnessChallenge,
   },
   posture: {
     type: 'posture',
-    title: 'Posture Reset',
-    nudgeMessage: "🧘 AURA noticed your posture has been off a while — let's do a quick reset! Sit up straight and show me your best posture for XP.",
-    verificationMethod: 'vision',
+    title: 'Posture Reset — Raise Arms',
+    nudgeMessage: "🧘 AURA noticed your posture drifting — raise both arms above your head and hold for 3 seconds! I'll detect it with pose tracking.",
+    verificationMethod: 'behavioral',
     xpReward: 30,
     emoji: '🧘',
   },
@@ -85,10 +85,10 @@ const CHALLENGE_TEMPLATES: Record<WellnessChallengeType, Omit<WellnessChallenge,
   },
   'wrist-stretch': {
     type: 'wrist-stretch',
-    title: 'Wrist Stretch',
-    nudgeMessage: "⚠️ RSI Alert: Your wrists have been under strain for 15 minutes of continuous typing. Time for a wrist stretch! Show me you're doing it for +40 XP",
-    verificationMethod: 'vision',
-    xpReward: 40,
+    title: 'Wrist Stretch — RSI Prevention',
+    nudgeMessage: "🤲 Your typing intensity is high — time for a wrist stretch! Shake your hands and wrists rapidly. I'll detect the motion with pose tracking.",
+    verificationMethod: 'behavioral',
+    xpReward: 25,
     emoji: '🤲',
   },
   'neck-roll': {
@@ -132,16 +132,16 @@ const PROD_COOLDOWNS: Record<WellnessChallengeType, number> = {
 };
 
 const DEMO_COOLDOWNS: Record<WellnessChallengeType, number> = {
-  hydration: 30_000,
-  posture: 30_000,
-  'eye-break': 30_000,
-  'typing-break': 30_000,
-  breath: 30_000,
-  movement: 30_000,
-  'wrist-stretch': 30_000,
-  'neck-roll': 30_000,
-  'eye-relief': 30_000,
-  'standing-break': 30_000,
+  hydration: 5_000,
+  posture: 5_000,
+  'eye-break': 5_000,
+  'typing-break': 5_000,
+  breath: 5_000,
+  movement: 5_000,
+  'wrist-stretch': 5_000,
+  'neck-roll': 5_000,
+  'eye-relief': 5_000,
+  'standing-break': 5_000,
 };
 
 // Demo mode trigger thresholds (seconds) for original 6 challenges
@@ -296,16 +296,19 @@ export function useWellnessCoach({
     setActiveChallenge(null);
   }, []);
 
-  // ── Auto-dismiss stale challenges in demo mode (15s timeout) ──────────────
-  // This keeps the challenge queue flowing so multiple challenges fire in a 60s demo
+  // ── Auto-dismiss stale challenges in demo mode (12s timeout) ──────────────
+  // Clears active challenge before the next scheduled one fires (spaced 20-25s apart)
   useEffect(() => {
     if (!isDemoMode || !activeChallengeRef.current) return;
     const timer = setTimeout(() => {
       if (activeChallengeRef.current) {
-        console.log(`⏭️ Auto-dismissing stale "${activeChallengeRef.current.type}" challenge (demo mode 15s timeout)`);
+        console.log(`⏭️ Auto-dismissing stale "${activeChallengeRef.current.type}" challenge (demo mode 12s timeout)`);
+        // Auto-complete with XP so it feels rewarding even if user didn't interact
+        const c = activeChallengeRef.current;
+        setPendingCompletion({ challenge: c, xp: c.xpReward });
         setActiveChallenge(null);
       }
-    }, 15_000);
+    }, 12_000);
     return () => clearTimeout(timer);
   }, [activeChallenge, isDemoMode]);
 
@@ -328,75 +331,72 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, hrv]);
 
-  // ── Hydration: every 30 min (demo: 45s) of cumulative session ──────────────
+  // ── Auto-triggers: DISABLED in demo mode (Dashboard runs scripted sequence) ──
+  // In production mode, these fire based on real thresholds.
+
+  // ── Hydration: every 30 min of cumulative session ──────────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? DEMO_TRIGGERS.hydration : 30 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 30 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('hydration');
   }, [isSessionActive, cumulativeSeconds, issueChallenge, isDemoMode]);
 
-  // ── Eye-break: every 40 min (demo: 90s) of cumulative session ─────────────
+  // ── Eye-break: every 40 min of cumulative session ─────────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? DEMO_TRIGGERS['eye-break'] : 40 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 40 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('eye-break');
   }, [isSessionActive, cumulativeSeconds, issueChallenge, isDemoMode]);
 
-  // ── Typing-break: PROACTIVE after 60 min (demo: 30s) of sustained high APM ──
+  // ── Typing-break: after 60 min of sustained high APM ──
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? DEMO_TRIGGERS['typing-break'] : 60 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 60 * 60;
     if (highApmSeconds >= t && highApmSeconds % t < 2) issueChallenge('typing-break');
   }, [isSessionActive, highApmSeconds, issueChallenge, isDemoMode]);
 
-  // ── Movement: every 90 min (demo: 120s) of cumulative session ─────────────
+  // ── Movement: every 90 min of cumulative session ─────────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? DEMO_TRIGGERS.movement : 90 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 90 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('movement');
   }, [isSessionActive, cumulativeSeconds, issueChallenge, isDemoMode]);
 
-  // ── Posture: after 3 min (demo: 15s) of sustained bad posture ─────────────
+  // ── Posture: after 3 min of sustained bad posture ─────────────
   useEffect(() => {
-    if (!isSessionActive || !postureWarning) {
+    if (!isSessionActive || isDemoMode || !postureWarning) {
       postureStartRef.current = null;
       return;
     }
     if (postureStartRef.current === null) postureStartRef.current = Date.now();
     const elapsed = (Date.now() - postureStartRef.current) / 1000;
-    const threshold = isDemoMode ? DEMO_TRIGGERS.posture : 180;
-    if (elapsed >= threshold) {
+    if (elapsed >= 180) {
       issueChallenge('posture');
       postureStartRef.current = null;
     }
   }, [isSessionActive, postureWarning, cumulativeSeconds, issueChallenge, isDemoMode]);
 
-  // ── Breath: HRV drops ≥10% (demo: 5%) from session baseline ──────────────
+  // ── Breath: HRV drops ≥10% from session baseline ──────────────
   useEffect(() => {
-    if (!isSessionActive || baselineHrvRef.current === null) return;
+    if (!isSessionActive || isDemoMode || baselineHrvRef.current === null) return;
     const baseline = baselineHrvRef.current;
     const drop = ((baseline - hrv) / baseline) * 100;
-    const threshold = isDemoMode ? DEMO_TRIGGERS.breath : 10;
-    if (drop >= threshold) {
+    if (drop >= 10) {
       issueChallenge('breath');
       baselineHrvRef.current = hrv;
     }
   }, [isSessionActive, hrv, issueChallenge, isDemoMode]);
 
-  // ── RSI: wrist-stretch — after 15 min continuous typing (45s demo) ──────────
+  // ── RSI: wrist-stretch — after 15 min continuous typing ──────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? 45 : 15 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 15 * 60;
     if (highApmSeconds >= t && highApmSeconds % t < 2) {
-      const mins = Math.round(highApmSeconds / 60);
-      const tpl = CHALLENGE_TEMPLATES['wrist-stretch'];
-      const msg = `⚠️ RSI Alert: Your wrists have been under strain for ${mins} minutes of continuous typing. Time for a wrist stretch! Show me you're doing it for +${tpl.xpReward} XP`;
-      // Issue with dynamic message
       if (canIssue('wrist-stretch')) {
+        const tpl = CHALLENGE_TEMPLATES['wrist-stretch'];
         const challenge: WellnessChallenge = {
           ...tpl,
           id: `wrist-stretch-${Date.now()}`,
-          nudgeMessage: msg,
         };
         lastIssuedRef.current['wrist-stretch'] = Date.now();
         setActiveChallenge(challenge);
@@ -405,35 +405,28 @@ export function useWellnessCoach({
     }
   }, [isSessionActive, highApmSeconds, isDemoMode, canIssue, onChallenge]);
 
-  // ── RSI: neck-roll — after 20 min without break (60s demo) ────────────────
+  // ── RSI: neck-roll — after 20 min without break ────────────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? 60 : 20 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 20 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('neck-roll');
   }, [isSessionActive, cumulativeSeconds, isDemoMode, issueChallenge]);
 
-  // ── RSI: eye-relief — after 25 min screen time (90s demo) ────────────────
+  // ── RSI: eye-relief — after 25 min screen time ────────────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    const t = isDemoMode ? 90 : 25 * 60;
+    if (!isSessionActive || isDemoMode) return;
+    const t = 25 * 60;
     if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('eye-relief');
   }, [isSessionActive, cumulativeSeconds, isDemoMode, issueChallenge]);
 
-  // ── RSI: standing-break — RSI risk > 60 (2 min session in demo) ───────────
-  // RSI risk heuristic: weighted combo of sustained high APM + session length without breaks
+  // ── RSI: standing-break — RSI risk > 60 ───────────
   useEffect(() => {
-    if (!isSessionActive) return;
-    if (isDemoMode) {
-      const t = 2 * 60;
-      if (cumulativeSeconds >= t && cumulativeSeconds % t < 2) issueChallenge('standing-break');
-    } else {
-      // RSI risk score: 0-100, based on typing intensity and session duration
-      const typingIntensity = Math.min(apm / 120, 1) * 50; // 0-50 from APM
-      const sessionLoad = Math.min(cumulativeSeconds / (60 * 60), 1) * 30; // 0-30 from duration
-      const sustainedTyping = Math.min(highApmSeconds / (30 * 60), 1) * 20; // 0-20 from sustained APM
-      const rsiRisk = typingIntensity + sessionLoad + sustainedTyping;
-      if (rsiRisk > 60) issueChallenge('standing-break');
-    }
+    if (!isSessionActive || isDemoMode) return;
+    const typingIntensity = Math.min(apm / 120, 1) * 50;
+    const sessionLoad = Math.min(cumulativeSeconds / (60 * 60), 1) * 30;
+    const sustainedTyping = Math.min(highApmSeconds / (30 * 60), 1) * 20;
+    const rsiRisk = typingIntensity + sessionLoad + sustainedTyping;
+    if (rsiRisk > 60) issueChallenge('standing-break');
   }, [isSessionActive, isDemoMode, apm, cumulativeSeconds, highApmSeconds, issueChallenge]);
 
   // ── Behavioral auto-verify: typing-break — near-zero APM for 30s ───────────

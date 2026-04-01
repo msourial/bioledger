@@ -1,5 +1,5 @@
 import { useRef, useState, useEffect, useCallback } from 'react';
-import { FaceLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
+import { FaceLandmarker, PoseLandmarker, FilesetResolver } from '@mediapipe/tasks-vision';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +26,14 @@ export interface UseCameraResult {
   noseY: number | null;
   /** Head pitch angle in degrees. Negative = tilted back (drinking). Used for hydration detection. */
   headPitch: number | null;
+  /** Left wrist Y from pose landmarker (landmark 15), normalized 0=top 1=bottom */
+  leftWristY: number | null;
+  /** Right wrist Y from pose landmarker (landmark 16), normalized 0=top 1=bottom */
+  rightWristY: number | null;
+  /** Left shoulder Y from pose landmarker (landmark 11), normalized 0=top 1=bottom */
+  leftShoulderY: number | null;
+  /** Right shoulder Y from pose landmarker (landmark 12), normalized 0=top 1=bottom */
+  rightShoulderY: number | null;
   /** Capture a full-res JPEG frame from the video stream; returns base64 string (no data-URL prefix) or null */
   captureFrame: () => string | null;
 }
@@ -73,6 +81,39 @@ async function getLandmarker(): Promise<FaceLandmarker> {
   return landmarkerPromise;
 }
 
+// ─── Pose Landmarker Singleton ───────────────────────────────────────────────
+
+const POSE_MODEL_URL =
+  'https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task';
+
+let poseLandmarkerPromise: Promise<PoseLandmarker> | null = null;
+
+async function getPoseLandmarker(): Promise<PoseLandmarker> {
+  if (!poseLandmarkerPromise) {
+    poseLandmarkerPromise = (async () => {
+      const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
+      try {
+        return await PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'GPU' },
+          runningMode: 'VIDEO',
+          numPoses: 1,
+        });
+      } catch (gpuErr) {
+        console.warn('[Bio-Ledger] Pose GPU delegate failed, falling back to CPU:', gpuErr);
+        return PoseLandmarker.createFromOptions(vision, {
+          baseOptions: { modelAssetPath: POSE_MODEL_URL, delegate: 'CPU' },
+          runningMode: 'VIDEO',
+          numPoses: 1,
+        });
+      }
+    })().catch((err) => {
+      poseLandmarkerPromise = null;
+      throw err;
+    });
+  }
+  return poseLandmarkerPromise;
+}
+
 /** Extract pitch (x-axis) and roll (z-axis) from a 4×4 row-major affine matrix. */
 function extractEulerAngles(m: Float32Array | number[]): { pitch: number; roll: number } {
   const pitch = Math.atan2(-m[9], m[10]) * (180 / Math.PI);
@@ -88,6 +129,8 @@ export function useCamera(enabled: boolean): UseCameraResult {
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number>(0);
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
+  const poseLandmarkerRef = useRef<PoseLandmarker | null>(null);
+  const poseFrameCounterRef = useRef(0);
   const lastPresenceRef = useRef<number>(Date.now());
   const sessionStartRef = useRef<number>(Date.now());
   const wasBlinkingRef = useRef(false);
@@ -110,6 +153,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
   const [error, setError] = useState<string | null>(null);
   const [noseY, setNoseY] = useState<number | null>(null);
   const [headPitch, setHeadPitch] = useState<number | null>(null);
+  const [leftWristY, setLeftWristY] = useState<number | null>(null);
+  const [rightWristY, setRightWristY] = useState<number | null>(null);
+  const [leftShoulderY, setLeftShoulderY] = useState<number | null>(null);
+  const [rightShoulderY, setRightShoulderY] = useState<number | null>(null);
 
   const stopCamera = useCallback(() => {
     cancelAnimationFrame(rafRef.current);
@@ -185,6 +232,25 @@ export function useCamera(enabled: boolean): UseCameraResult {
       // Silently continue if model hasn't warmed up yet
     }
 
+    // ── Pose detection (every 3rd frame to save CPU) ────────────────────
+    poseFrameCounterRef.current += 1;
+    const poseLm = poseLandmarkerRef.current;
+    if (poseLm && poseFrameCounterRef.current % 3 === 0) {
+      try {
+        const poseResult = poseLm.detectForVideo(video, now);
+        if (poseResult.landmarks && poseResult.landmarks.length > 0) {
+          const landmarks = poseResult.landmarks[0];
+          // Landmark indices: 11=left shoulder, 12=right shoulder, 15=left wrist, 16=right wrist
+          setLeftShoulderY(landmarks[11]?.y ?? null);
+          setRightShoulderY(landmarks[12]?.y ?? null);
+          setLeftWristY(landmarks[15]?.y ?? null);
+          setRightWristY(landmarks[16]?.y ?? null);
+        }
+      } catch {
+        // Silently continue if pose model hasn't warmed up yet
+      }
+    }
+
     setFaceDetected(faceFound);
 
     // ── Vision metrics snapshot every ~60 frames ──────────────────────────
@@ -229,12 +295,18 @@ export function useCamera(enabled: boolean): UseCameraResult {
         await video.play().catch(() => {});
       }
 
-      // Load MediaPipe model — non-fatal if it fails
+      // Load MediaPipe models — non-fatal if they fail
       try {
         landmarkerRef.current = await getLandmarker();
       } catch (modelErr) {
         console.warn('[Bio-Ledger] Face landmarker failed to load, running without face detection:', modelErr);
         landmarkerRef.current = null;
+      }
+      try {
+        poseLandmarkerRef.current = await getPoseLandmarker();
+      } catch (modelErr) {
+        console.warn('[Bio-Ledger] Pose landmarker failed to load, running without pose detection:', modelErr);
+        poseLandmarkerRef.current = null;
       }
 
       lastPresenceRef.current = Date.now();
@@ -304,6 +376,10 @@ export function useCamera(enabled: boolean): UseCameraResult {
     error,
     noseY,
     headPitch,
+    leftWristY,
+    rightWristY,
+    leftShoulderY,
+    rightShoulderY,
     captureFrame,
   };
 }

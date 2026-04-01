@@ -90,6 +90,7 @@ export const CreateReceiptBodyReceiptType = {
   work: "work",
   insight: "insight",
   wellness: "wellness",
+  meditation: "meditation",
 } as const;
 
 export interface CreateReceiptBody {

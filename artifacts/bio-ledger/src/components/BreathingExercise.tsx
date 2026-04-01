@@ -8,13 +8,13 @@ import { cn } from '@/lib/utils';
 type Phase = 'inhale' | 'hold-in' | 'exhale' | 'hold-out';
 
 const PHASES: { phase: Phase; label: string; duration: number }[] = [
-  { phase: 'inhale', label: 'BREATHE IN', duration: 4 },
-  { phase: 'hold-in', label: 'HOLD', duration: 4 },
-  { phase: 'exhale', label: 'BREATHE OUT', duration: 4 },
-  { phase: 'hold-out', label: 'HOLD', duration: 4 },
+  { phase: 'inhale', label: 'BREATHE IN', duration: 2 },
+  { phase: 'hold-in', label: 'HOLD', duration: 2 },
+  { phase: 'exhale', label: 'BREATHE OUT', duration: 2 },
+  { phase: 'hold-out', label: 'HOLD', duration: 2 },
 ];
 
-const TOTAL_CYCLES = 4;
+const TOTAL_CYCLES = 1;
 const CYCLE_DURATION = PHASES.reduce((sum, p) => sum + p.duration, 0); // 16s
 
 interface BiometricSnapshot {

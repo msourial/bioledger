@@ -28,7 +28,8 @@ import { useCamera } from '@/hooks/use-camera';
 import { useMotionLock } from '@/hooks/use-motion-lock';
 import { useWellnessCoach, type WellnessChallenge } from '@/hooks/use-wellness-coach';
 import { useRSIRisk, type RiskLevel, type RSIRiskState } from '@/hooks/use-rsi-risk';
-import { useStretchDetection } from '@/hooks/use-stretch-detection';
+import { useBreakDetection, useArmRaiseDetection } from '@/hooks/use-stretch-detection';
+import { useWristShake } from '@/hooks/use-wrist-shake';
 import { useDrinkDetection } from '@/hooks/use-drink-detection';
 import { PixelPanel, PixelButton, NeonText, AuraOrb } from '@/components/PixelUI';
 import CameraLens from '@/components/CameraLens';
@@ -38,11 +39,14 @@ import AuraChat from '@/components/AuraChat';
 import ExerciseBreakModal, { EXERCISES, type Exercise } from '@/components/ExerciseBreakModal';
 import MovementChallenge, { getRandomMovement, type Movement } from '@/components/MovementChallenge';
 import BreathingExercise from '@/components/BreathingExercise';
+import MeditationMode, { type MeditationResult } from '@/components/MeditationMode';
+import BrainwaveVisualizer from '@/components/BrainwaveVisualizer';
 import { cn, truncateHash } from '@/lib/utils';
-import { signWorkReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
+import { signWorkReceipt, signMeditationReceipt, storeToFilecoin, gradeSession, type FilecoinResult, type SessionGradeResult } from '@/lib/companion-agent';
 import { useListReceipts, useCreateReceipt } from '@workspace/api-client-react';
 import type { WearableSource } from '@/pages/LockScreen';
 import { usePrivySafe } from '@/hooks/use-privy-safe';
+import { getAuraBalance, mintAuraTokens } from '@/lib/aura-token';
 
 interface DashboardProps {
   nullifierHash: string;
@@ -59,14 +63,15 @@ const WEARABLE_LABELS: Record<WearableSource, { label: string; color: string }> 
 };
 
 const POMODORO_TIME = 25 * 60;
-const DEMO_TIME = 60;
+const DEMO_TIME = 180;
 
-// Demo tooltip phases — 4-step guided narration keyed by seconds-remaining thresholds
 const DEMO_PHASES = [
-  { threshold: DEMO_TIME,      step: 1, label: 'IDENTITY',   msg: 'World ID nullifier bound to session — ZK proof active' },
-  { threshold: DEMO_TIME - 18, step: 2, label: 'BIOMETRICS', msg: 'Live HRV, strain & vision score streaming from sensors' },
-  { threshold: DEMO_TIME - 36, step: 3, label: 'SIGNING',    msg: 'AURA Agent preparing ERC-8004 HMAC receipt for signing' },
-  { threshold: DEMO_TIME - 50, step: 4, label: 'STORAGE',    msg: 'Queuing Filecoin upload via Synapse SDK warm storage…' },
+  { threshold: DEMO_TIME - 5,   step: 1, label: '🤲 RSI CHECK',   msg: 'AURA monitors typing intensity — APM, keystrokes & clicks tracked' },
+  { threshold: DEMO_TIME - 30,  step: 2, label: '💧 HYDRATION',   msg: 'AURA checks your hydration — tilt your head back to drink' },
+  { threshold: DEMO_TIME - 60,  step: 3, label: '🧘 POSTURE',     msg: 'Raise both arms above your head — AURA verifies via pose detection' },
+  { threshold: DEMO_TIME - 90,  step: 4, label: '🌬️ BREATHING',   msg: 'Guided box breathing with before/after biometric feedback' },
+  { threshold: DEMO_TIME - 120, step: 5, label: '🏃 MOVEMENT',    msg: 'Step away from your desk — AURA detects when you leave & return' },
+  { threshold: DEMO_TIME - 150, step: 6, label: '🧠 MEDITATE',    msg: 'Neural meditation with real-time brainwave-proxy visualization' },
 ] as const;
 
 /** Lerp HRV value → soft violet (#8B5CF6) at ≥70ms, warm coral (#FB7185) at <55ms */
@@ -175,6 +180,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   // Motion lock
   const handleMotionInterrupt = useCallback(() => {
+    if (isDemoRef.current) return; // Don't interrupt demo mode
     setIsSessionActive(false);
     physicalIntegrityRef.current = false;
     console.log('[Bio-Ledger] Interruption Event: focus timer paused');
@@ -190,9 +196,28 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
   // Breathing exercise overlay
   const [breathingOpen, setBreathingOpen] = useState(false);
 
-  // Stretch gesture detection (arms raised above head) — activated by stretchChallengeActive state
+  // Meditation mode overlay
+  const [meditationOpen, setMeditationOpen] = useState(false);
+
+  // AURA token balance
+  const [auraBalance, setAuraBalance] = useState<string>('0');
+  const [lastMintHash, setLastMintHash] = useState<string | null>(null);
+
+  // Break detection (step away from computer) — activated by movement challenge
   const [stretchChallengeActive, setStretchChallengeActive] = useState(false);
-  const stretch = useStretchDetection(camera.noseY, stretchChallengeActive);
+  const breakDetection = useBreakDetection(camera.faceDetected, stretchChallengeActive);
+
+  // Wrist shake detection (wrist-stretch challenge) — shaking hands rapidly
+  const [wristStretchActive, setWristStretchActive] = useState(false);
+  const wristShake = useWristShake(camera.leftWristY, camera.rightWristY, wristStretchActive);
+
+  // Arm raise detection (posture challenge) — both wrists above shoulders
+  const [postureChallengeActive, setPostureChallengeActive] = useState(false);
+  const armRaise = useArmRaiseDetection(
+    camera.leftWristY, camera.rightWristY,
+    camera.leftShoulderY, camera.rightShoulderY,
+    postureChallengeActive,
+  );
 
   // Drink detection (head tilt back) — activated when hydration challenge is active
   const [drinkChallengeActive, setDrinkChallengeActive] = useState(false);
@@ -252,7 +277,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
   const presenceLostAlerted = useRef(false);
 
   useEffect(() => {
-    if (presenceLost && !presenceLostAlerted.current) {
+    if (presenceLost && !presenceLostAlerted.current && !isDemoMode) {
       presenceLostAlerted.current = true;
       setIsSessionActive(false);
       physicalIntegrityRef.current = false;
@@ -400,13 +425,26 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     setChallengeNudge(challenge.nudgeMessage);
   }, []);
 
-  const handleWellnessComplete = useCallback((challenge: WellnessChallenge, xpAwarded: number) => {
+  const handleWellnessComplete = useCallback(async (challenge: WellnessChallenge, xpAwarded: number) => {
     void signWellnessReceipt(challenge.type, xpAwarded);
 
     // XP toast popup
     if (xpToastTimerRef.current) clearTimeout(xpToastTimerRef.current);
     setXpToast({ xp: xpAwarded, type: challenge.type, method: challenge.verificationMethod });
     xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
+
+    // Attempt to mint AURA tokens on Flow EVM Testnet
+    if (walletAddress && privy.privyAvailable) {
+      try {
+        const provider = await privy.getProvider?.();
+        if (provider) {
+          const result = await mintAuraTokens(provider, walletAddress as `0x${string}`, xpAwarded);
+          if (result.hash) setLastMintHash(result.hash);
+        }
+      } catch (err) {
+        console.warn('[AURA Token] Mint attempt failed:', err);
+      }
+    }
 
     // Reward chime (Web Audio API — no file needed)
     try {
@@ -423,7 +461,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       osc.start(ctx.currentTime);
       osc.stop(ctx.currentTime + 0.4);
     } catch { /* audio not available */ }
-  }, [signWellnessReceipt]);
+  }, [signWellnessReceipt, walletAddress, privy]);
 
   const wellnessCoach = useWellnessCoach({
     isSessionActive,
@@ -441,6 +479,12 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
       setBreathingOpen(true);
     }
   }, [wellnessCoach.activeChallenge]);
+
+  // Fetch AURA token balance
+  useEffect(() => {
+    if (!walletAddress) return;
+    getAuraBalance(walletAddress as `0x${string}`).then(setAuraBalance).catch(() => {});
+  }, [walletAddress, wellnessCoach.totalXP]);
 
   const handleBreathingComplete = useCallback((xp: number, before: { hrv: number; blinkRate: number; headStability: number }, after: { hrv: number; blinkRate: number; headStability: number }) => {
     // Complete the breath challenge if active
@@ -468,22 +512,52 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
     }
   }, [drink.drinkCompleted, wellnessCoach.activeChallenge]);
 
-  // Stretch detection: activate when a physical challenge is active
-  const STRETCH_CHALLENGE_TYPES = ['posture', 'movement', 'wrist-stretch', 'neck-roll', 'standing-break'];
+  // Wrist shake detection: activate when wrist-stretch challenge is active
   useEffect(() => {
-    const active = isSessionActive && wellnessCoach.activeChallenge != null &&
-      STRETCH_CHALLENGE_TYPES.includes(wellnessCoach.activeChallenge.type);
-    setStretchChallengeActive(active);
-    if (!active) stretch.reset();
+    const active = wellnessCoach.activeChallenge?.type === 'wrist-stretch';
+    setWristStretchActive(!!active);
+    if (!active) wristShake.reset();
+  }, [wellnessCoach.activeChallenge]);
+
+  // Auto-complete wrist-stretch when shaking detected
+  useEffect(() => {
+    if (wristShake.shakeCompleted && wellnessCoach.activeChallenge?.type === 'wrist-stretch') {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      wristShake.reset();
+    }
+  }, [wristShake.shakeCompleted, wellnessCoach.activeChallenge]);
+
+  // Posture detection: activate arm raise when posture challenge is active
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge?.type === 'posture';
+    setPostureChallengeActive(active);
+    if (!active) armRaise.reset();
   }, [isSessionActive, wellnessCoach.activeChallenge]);
 
-  // Auto-complete challenge when stretch is held for 5 seconds
+  // Auto-complete posture challenge when arms raised for 3s
   useEffect(() => {
-    if (stretch.stretchCompleted && wellnessCoach.activeChallenge) {
+    if (armRaise.armRaiseCompleted && wellnessCoach.activeChallenge?.type === 'posture') {
       wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
-      stretch.reset();
+      armRaise.reset();
     }
-  }, [stretch.stretchCompleted, wellnessCoach.activeChallenge]);
+  }, [armRaise.armRaiseCompleted, wellnessCoach.activeChallenge]);
+
+  // Break detection: activate when movement challenge is active
+  const BREAK_CHALLENGE_TYPES = ['movement', 'standing-break'];
+  useEffect(() => {
+    const active = isSessionActive && wellnessCoach.activeChallenge != null &&
+      BREAK_CHALLENGE_TYPES.includes(wellnessCoach.activeChallenge.type);
+    setStretchChallengeActive(active);
+    if (!active) breakDetection.reset();
+  }, [isSessionActive, wellnessCoach.activeChallenge]);
+
+  // Auto-complete movement challenge when break is detected (user stepped away and returned)
+  useEffect(() => {
+    if (breakDetection.breakCompleted && wellnessCoach.activeChallenge) {
+      wellnessCoach.completeChallenge(wellnessCoach.activeChallenge.id, wellnessCoach.activeChallenge.xpReward);
+      breakDetection.reset();
+    }
+  }, [breakDetection.breakCompleted, wellnessCoach.activeChallenge]);
 
   // Advance demo phase tooltip based on time remaining
   useEffect(() => {
@@ -513,6 +587,8 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
   const handleSessionComplete = async () => {
     setIsSessionActive(false);
     setIsDemoMode(false);
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
     setIsFiling(true);
     setFilingPhase('SIGNING RECEIPT...');
 
@@ -599,25 +675,86 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
 
   const toggleTimer = () => setIsSessionActive((prev) => !prev);
 
+  const demoTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
   const startDemoMode = () => {
     isDemoRef.current = true;
     setIsDemoMode(true);
     setDemoPhaseIndex(0);
     setTimeLeft(DEMO_TIME);
     physicalIntegrityRef.current = true;
-    setSessionGrade(null);       // Clear previous grade overlay
-    setBreathingOpen(false);     // Close breathing exercise if open
+    setSessionGrade(null);
+    setBreathingOpen(false);
     setStretchChallengeActive(false);
+    setPostureChallengeActive(false);
     setDrinkChallengeActive(false);
-    stretch.reset();
+    breakDetection.reset();
+    armRaise.reset();
+    wristShake.reset();
     drink.reset();
     setIsSessionActive(true);
 
-    // In demo mode, auto-trigger hydration challenge at 10s so user sees drink detection quickly
-    // (don't use movement — it blocks the challenge queue for too long)
-    setTimeout(() => {
-      wellnessCoach.issueChallenge('hydration');
-    }, 10000);
+    // Clear any previous demo timers
+    demoTimersRef.current.forEach(clearTimeout);
+    demoTimersRef.current = [];
+
+    // ── Scripted AURA coaching sequence ──
+    // Each step: AURA sends a coaching message → waits → triggers the challenge
+    const schedule = (delayMs: number, fn: () => void) => {
+      demoTimersRef.current.push(setTimeout(fn, delayMs));
+    };
+
+    // Helper: dismiss any active challenge, then issue a new one
+    const forceIssue = (type: Parameters<typeof wellnessCoach.issueChallenge>[0]) => {
+      wellnessCoach.dismissChallenge();
+      // Small delay to let state clear before issuing
+      setTimeout(() => wellnessCoach.issueChallenge(type), 100);
+    };
+
+    // 1. RSI / Wrist Stretch (5s) — AURA detects typing intensity
+    schedule(5000, () => {
+      setChallengeNudge("Your typing intensity has been sustained — APM tracking shows repetitive strain building on your wrists and tendons. Let's do a quick wrist stretch before it becomes a problem! 🤲");
+      setRightTab('chat');
+    });
+    schedule(7000, () => forceIssue('wrist-stretch'));
+
+    // 2. Hydration (30s) — AURA notices you working hard
+    schedule(30000, () => {
+      setChallengeNudge("Great stretch! Now let's hydrate — your HRV is holding steady but water is key for sustained focus. Grab some water and tilt your head back to drink! 💧");
+      setRightTab('chat');
+    });
+    schedule(32000, () => forceIssue('hydration'));
+
+    // 3. Posture (60s) — AURA detects slouching
+    schedule(60000, () => {
+      setChallengeNudge("Your posture is slipping! Time for a full reset — raise both arms above your head and hold for 3 seconds. I'll track it with pose detection to verify. 🧘");
+      setRightTab('chat');
+    });
+    schedule(62000, () => forceIssue('posture'));
+
+    // 4. Breathing (90s) — AURA senses stress
+    schedule(90000, () => {
+      setChallengeNudge("Your blink rate is elevated — that's a sign of mental load building up. Let's do a quick 8-second breathing reset to bring your nervous system back to baseline. 🌬️");
+      setRightTab('chat');
+    });
+    schedule(92000, () => forceIssue('breath'));
+
+    // 5. Movement (120s) — AURA recommends stepping away
+    schedule(120000, () => {
+      setChallengeNudge("You've been at your desk too long — time for a real break! Step away from your computer for 5 seconds. I'll detect when you leave and reward you when you return. 🏃");
+      setRightTab('chat');
+    });
+    schedule(122000, () => forceIssue('movement'));
+
+    // 6. Meditate (150s) — AURA closes with neural meditation
+    schedule(150000, () => {
+      wellnessCoach.dismissChallenge();
+      setChallengeNudge("You've done amazing this session. Let's close with a quick neural meditation — sit still, breathe naturally, and watch your brainwave activity settle into a calm state. 🧠");
+      setRightTab('chat');
+    });
+    schedule(152000, () => {
+      setMeditationOpen(true);
+    });
   };
 
   const formatTime = (seconds: number) => {
@@ -749,40 +886,36 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         {isDemoMode && isSessionActive && currentDemoPhase && (
           <motion.div
             key={currentDemoPhase.step}
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: -12, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -12, scale: 0.95 }}
             transition={{ type: 'spring', stiffness: 300, damping: 28 }}
-            className="absolute bottom-0 inset-x-0 z-50 px-4 py-4"
-            style={{ background: 'linear-gradient(0deg, rgba(26,16,64,0.88) 0%, rgba(26,16,64,0.75) 100%)', backdropFilter: 'blur(12px)', borderTop: '1px solid rgba(255,255,255,0.12)' }}
+            className="fixed top-3 left-1/2 -translate-x-1/2 z-[100] px-4 py-2.5 rounded-xl pointer-events-none"
+            style={{ background: 'rgba(26,16,64,0.92)', backdropFilter: 'blur(16px)', border: '1px solid rgba(139,92,246,0.35)', boxShadow: '0 4px 24px rgba(0,0,0,0.4), 0 0 12px rgba(139,92,246,0.2)' }}
           >
-            <div className="max-w-lg mx-auto">
+            <div className="flex items-center gap-3">
               {/* Step dots */}
-              <div className="flex items-center gap-1.5 mb-2.5">
+              <div className="flex items-center gap-1">
                 {DEMO_PHASES.map((p, i) => (
                   <div
                     key={p.step}
                     className={cn(
-                      'h-1.5 rounded-full transition-all duration-500',
-                      i <= demoPhaseIndex ? 'bg-violet-400 w-8' : 'bg-violet-400/20 w-3'
+                      'h-1 rounded-full transition-all duration-500',
+                      i <= demoPhaseIndex ? 'bg-violet-400 w-5' : 'bg-violet-400/20 w-2'
                     )}
                   />
                 ))}
-                <span className="font-terminal text-sm font-semibold text-violet-300/70 ml-2">
-                  Step {currentDemoPhase.step}/{DEMO_PHASES.length}
-                </span>
               </div>
-              <div className="flex items-start gap-3">
-                <Zap className="w-4 h-4 text-violet-400 flex-shrink-0 mt-0.5 animate-pulse" />
-                <div>
-                  <span className="font-terminal text-sm font-bold text-violet-300 mr-2">
-                    ✦ {currentDemoPhase.label}
-                  </span>
-                  <span className="font-terminal text-sm text-muted-foreground">
-                    {currentDemoPhase.msg}
-                  </span>
-                </div>
-              </div>
+              <Zap className="w-3.5 h-3.5 text-violet-400 flex-shrink-0 animate-pulse" />
+              <span className="font-terminal text-xs font-bold text-violet-300">
+                {currentDemoPhase.label}
+              </span>
+              <span className="font-terminal text-xs text-muted-foreground max-w-[300px] truncate hidden sm:inline">
+                {currentDemoPhase.msg}
+              </span>
+              <span className="font-terminal text-[10px] text-violet-300/50">
+                {currentDemoPhase.step}/{DEMO_PHASES.length}
+              </span>
             </div>
           </motion.div>
         )}
@@ -903,6 +1036,51 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         headStability={camera.visionMetrics.headStability}
       />
 
+      {/* Meditation Mode Overlay */}
+      <MeditationMode
+        isOpen={meditationOpen}
+        onClose={() => setMeditationOpen(false)}
+        onComplete={async (result: MeditationResult) => {
+          setMeditationOpen(false);
+          if (xpToastTimerRef.current) clearTimeout(xpToastTimerRef.current);
+          setXpToast({ xp: result.xpAwarded, type: 'meditation', method: 'neural' });
+          xpToastTimerRef.current = setTimeout(() => setXpToast(null), 3000);
+          // Sign meditation receipt
+          try {
+            const receipt = await signMeditationReceipt(nullifierHash, {
+              durationSeconds: result.durationSeconds,
+              depthScore: result.depthScore,
+              coherenceScore: result.coherenceScore,
+              hrvBefore: result.beforeSnapshot.hrv,
+              hrvAfter: result.afterSnapshot.hrv,
+              blinkRateBefore: result.beforeSnapshot.blinkRate,
+              blinkRateAfter: result.afterSnapshot.blinkRate,
+              stabilityBefore: result.beforeSnapshot.headStability,
+              stabilityAfter: result.afterSnapshot.headStability,
+            });
+            createReceiptMutation.mutate({
+              data: {
+                nullifierHash,
+                companionSignature: receipt.companionSignature,
+                sessionStats: receipt.sessionStats as any,
+                receiptType: 'meditation',
+                insightText: `[MEDITATION] Depth: ${result.depthScore}/100, Coherence: ${result.coherenceScore}/100`,
+                isDemo: isDemoMode,
+              },
+            });
+            console.log('🧠 Neurotech: Meditation receipt filed');
+          } catch (err) {
+            console.warn('[Bio-Ledger] Meditation receipt signing failed:', err);
+          }
+        }}
+        hrv={hrv}
+        blinkRate={camera.visionMetrics.avgBlinkRate}
+        headStability={camera.visionMetrics.headStability}
+        videoRef={camera.videoRef}
+        faceDetected={camera.faceDetected}
+        blinkCount={camera.blinkCount}
+      />
+
       {/* XP Toast Popup */}
       <AnimatePresence>
         {xpToast && (
@@ -962,7 +1140,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                 >
                   ⚡ Demo Mode
                 </motion.span>
-              ) : 'Sovereign Vault'}
+              ) : 'Productive & Healthy'}
             </h2>
             <div className="flex items-center gap-2 text-sm font-terminal text-muted-foreground">
               <ShieldCheck className="w-3 h-3 text-primary" />
@@ -1018,6 +1196,9 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                     >
                       {xp} XP
                     </motion.span>
+                    <span className="font-terminal text-[9px] text-amber-400/70 ml-1">
+                      🪙 {auraBalance} AURA
+                    </span>
                   </div>
                   {level > 0 && (
                     <span className="font-pixel text-[6px] text-amber-400/70 border border-amber-400/30 px-1 py-px rounded-sm">
@@ -1129,11 +1310,65 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
         {/* Camera Lens */}
         <CameraLens camera={camera} isSessionActive={isSessionActive} />
 
-        {/* Gesture Detection Progress — Stretch or Drink */}
+        {/* Gesture Detection Progress — Arm Raise, Break, or Drink */}
         <AnimatePresence>
-          {stretchChallengeActive && !stretch.stretchCompleted && (
+          {wristStretchActive && !wristShake.shakeCompleted && (
             <motion.div
-              key="stretch-progress"
+              key="wristshake-progress"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-orange-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-orange-300 font-bold uppercase tracking-wider">
+                  {wristShake.isShaking ? '🤲 Shaking detected — keep going!' : '🤲 Shake your hands & wrists!'}
+                </span>
+                <span className="font-terminal text-xs text-orange-400 font-bold">{wristShake.progress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-orange-400 to-amber-300"
+                  animate={{ width: `${wristShake.progress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {wristShake.isShaking ? `${wristShake.shakeCount} shakes detected — need 6 total` : 'Shake your wrists rapidly — AURA tracks via pose detection'}
+              </div>
+            </motion.div>
+          )}
+          {postureChallengeActive && !armRaise.armRaiseCompleted && (
+            <motion.div
+              key="armraise-progress"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="mx-4 sm:mx-8 mt-2 px-3 py-2 rounded-lg border border-violet-400/30"
+              style={{ background: 'rgba(15,10,40,0.8)', backdropFilter: 'blur(8px)' }}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <span className="font-terminal text-xs text-violet-300 font-bold uppercase tracking-wider">
+                  {armRaise.isArmsUp ? '💪 Hold it — arms above head!' : '🙆 Raise both arms above your head!'}
+                </span>
+                <span className="font-terminal text-xs text-violet-400 font-bold">{armRaise.holdProgress}%</span>
+              </div>
+              <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
+                <motion.div
+                  className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-400 to-violet-300"
+                  animate={{ width: `${armRaise.holdProgress}%` }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 20 }}
+                />
+              </div>
+              <div className="font-terminal text-[10px] text-muted-foreground mt-1">
+                {armRaise.isArmsUp ? 'Keep holding for 3 seconds...' : 'AURA will detect your arms via pose tracking'}
+              </div>
+            </motion.div>
+          )}
+          {stretchChallengeActive && !breakDetection.breakCompleted && (
+            <motion.div
+              key="break-progress"
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
@@ -1142,19 +1377,19 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-terminal text-xs text-amber-300 font-bold uppercase tracking-wider">
-                  {stretch.isStretching ? '💪 Hold stretch...' : '🙆 Raise arms above head!'}
+                  {breakDetection.isAway ? '\ud83d\udeb6 You stepped away \u2014 keep going!' : '\ud83c\udfc3 Step away from your computer!'}
                 </span>
-                <span className="font-terminal text-xs text-amber-400 font-bold">{stretch.holdProgress}%</span>
+                <span className="font-terminal text-xs text-amber-400 font-bold">{breakDetection.awaySeconds}s</span>
               </div>
               <div className="relative h-2 bg-white/10 rounded-full overflow-hidden">
                 <motion.div
                   className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-amber-400 to-amber-300"
-                  animate={{ width: `${stretch.holdProgress}%` }}
+                  animate={{ width: `${breakDetection.awayProgress}%` }}
                   transition={{ type: 'spring', stiffness: 120, damping: 20 }}
                 />
               </div>
               <div className="font-terminal text-[10px] text-muted-foreground mt-1">
-                {stretch.isStretching ? 'Keep holding for 5 seconds...' : 'AURA will detect when you raise your arms'}
+                {breakDetection.isAway ? 'Stay away for a few more seconds...' : 'AURA will detect when you leave your desk'}
               </div>
             </motion.div>
           )}
@@ -1187,30 +1422,63 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
           )}
         </AnimatePresence>
 
-        {/* Debug: Force-trigger challenges + sensor readout (demo mode only) */}
-        {isDemoMode && isSessionActive && (
+        {/* Wellness challenge triggers + sensor readout */}
+        {(
           <div className="mx-4 sm:mx-8 mt-2 space-y-1">
-            {!wellnessCoach.activeChallenge && (
-              <div className="flex flex-wrap gap-1">
-                {(['hydration', 'breath', 'posture', 'movement'] as const).map((type) => (
-                  <button
-                    key={type}
-                    onClick={() => wellnessCoach.issueChallenge(type)}
-                    className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
-                      bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10 cursor-pointer transition-colors"
-                  >
-                    Test: {type}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex flex-wrap gap-1">
+              {([
+                { type: 'wrist-stretch' as const, emoji: '🤲', label: 'Wrist Stretch' },
+                { type: 'hydration' as const, emoji: '💧', label: 'Hydration' },
+                { type: 'breath' as const, emoji: '🌬️', label: 'Breath' },
+                { type: 'posture' as const, emoji: '🧘', label: 'Posture' },
+                { type: 'movement' as const, emoji: '🏃', label: 'Movement' },
+              ]).map(({ type, emoji, label }) => (
+                <button
+                  key={type}
+                  onClick={() => wellnessCoach.issueChallenge(type)}
+                  disabled={wellnessCoach.activeChallenge?.type === type}
+                  className={cn(
+                    "px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider cursor-pointer transition-colors",
+                    wellnessCoach.activeChallenge?.type === type
+                      ? "bg-violet-500/20 border border-violet-400/40 text-violet-300"
+                      : "bg-white/5 border border-white/10 text-muted-foreground hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  {emoji} {label}
+                </button>
+              ))}
+              <button
+                onClick={() => setMeditationOpen(true)}
+                className="px-2 py-1 rounded text-[10px] font-terminal font-bold uppercase tracking-wider
+                  bg-violet-500/10 border border-violet-400/30 text-violet-300 hover:text-white hover:bg-violet-500/20 cursor-pointer transition-colors"
+              >
+                🧠 Meditate
+              </button>
+            </div>
             <div className="flex gap-3 font-terminal text-[9px] text-muted-foreground/60">
-              <span>noseY: {camera.noseY?.toFixed(3) ?? 'null'}</span>
-              <span>pitch: {camera.headPitch?.toFixed(1) ?? 'null'}°</span>
+              <span>wrists: {camera.leftWristY?.toFixed(2) ?? '-'}/{camera.rightWristY?.toFixed(2) ?? '-'}</span>
+              <span>shoulders: {camera.leftShoulderY?.toFixed(2) ?? '-'}/{camera.rightShoulderY?.toFixed(2) ?? '-'}</span>
               <span>face: {camera.faceDetected ? 'yes' : 'no'}</span>
-              {stretchChallengeActive && <span className="text-amber-400">stretch: {stretch.holdProgress}%</span>}
+              {stretchChallengeActive && <span className="text-amber-400">break: {breakDetection.awayProgress}%{breakDetection.isAway ? ' (away)' : ''}</span>}
               {drinkChallengeActive && <span className="text-blue-400">drink: {drink.holdProgress}%</span>}
             </div>
+          </div>
+        )}
+
+        {/* Neural Waveform — compact brainwave proxy */}
+        {isSessionActive && (
+          <div className="mx-4 sm:mx-8 mt-3">
+            <div className="flex items-center gap-2 mb-1">
+              <Brain className="w-3 h-3 text-violet-400" />
+              <span className="font-terminal text-[9px] text-violet-400/70 uppercase tracking-widest">Neural Activity</span>
+            </div>
+            <BrainwaveVisualizer
+              hrv={hrv}
+              blinkRate={camera.visionMetrics.avgBlinkRate}
+              headStability={camera.visionMetrics.headStability}
+              isActive={isSessionActive}
+              compact
+            />
           </div>
         )}
 
@@ -1373,14 +1641,14 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                     className="w-full px-4 py-3 border-2 border-primary/60 font-terminal text-sm font-bold uppercase tracking-wider text-primary/80 hover:border-primary hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer flex items-center justify-center gap-2"
                   >
                     <Zap className="w-3 h-3" />
-                    ⚡ DEMO MODE — 60s GUIDED WALKTHROUGH
+                    ⚡ DEMO MODE — 3min GUIDED WALKTHROUGH
                   </button>
                 )}
 
                 {/* Abort demo */}
                 {isDemoMode && isSessionActive && (
                   <PixelButton
-                    onClick={() => { setIsSessionActive(false); setIsDemoMode(false); setTimeLeft(POMODORO_TIME); isDemoRef.current = false; }}
+                    onClick={() => { setIsSessionActive(false); setIsDemoMode(false); setTimeLeft(POMODORO_TIME); isDemoRef.current = false; demoTimersRef.current.forEach(clearTimeout); demoTimersRef.current = []; }}
                     variant="danger"
                     className="w-full"
                   >
@@ -1456,7 +1724,7 @@ export default function Dashboard({ nullifierHash, bioSourceConnected, wearableS
                       ERC-8004 Agentic Work Receipt on Filecoin.
                     </p>
                     <p className="font-terminal text-sm text-primary/60 border border-primary/20 px-3 py-2 font-bold uppercase tracking-wider">
-                      ⚡ Use Demo Mode (60s) to see the full flow
+                      ⚡ Use Demo Mode (3min) to see the full flow
                     </p>
                   </div>
                 )}

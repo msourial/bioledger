@@ -61,7 +61,7 @@ export const ListReceiptsResponseItem = zod.object({
       "True when the receipt was created during a 60-second guided Demo Mode session",
     ),
   receiptType: zod
-    .enum(["work", "insight", "wellness"])
+    .enum(["work", "insight", "wellness", "meditation"])
     .optional()
     .describe(
       "Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)",
@@ -108,7 +108,7 @@ export const CreateReceiptBody = zod.object({
       "True when the receipt was created during a 60-second guided Demo Mode session",
     ),
   receiptType: zod
-    .enum(["work", "insight", "wellness"])
+    .enum(["work", "insight", "wellness", "meditation"])
     .optional()
     .describe(
       "Type of receipt — work (focus session), insight (AURA AI recommendation), or wellness (completed wellness challenge)",

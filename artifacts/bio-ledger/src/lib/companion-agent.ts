@@ -186,7 +186,7 @@ export async function signWorkReceipt(
   stats: SessionStats,
   prevStrain = 0,
   vision?: VisionMetrics,
-  receiptType: 'sustainable-flow-session' | 'aura-insight' | 'wellness' = 'sustainable-flow-session',
+  receiptType: 'sustainable-flow-session' | 'aura-insight' | 'wellness' | 'meditation' = 'sustainable-flow-session',
   walletProvider?: EIP1193Provider
 ): Promise<WorkReceiptPayload> {
   const timestamp = new Date().toISOString();
@@ -244,6 +244,58 @@ export async function signWorkReceipt(
     agent_signature: companionSignature,  // ERC-8004 naming for judges
     walletSignature,
   };
+}
+
+export interface MeditationReceiptData {
+  durationSeconds: number;
+  depthScore: number;       // 0-100
+  coherenceScore: number;   // 0-100
+  hrvBefore: number;
+  hrvAfter: number;
+  blinkRateBefore: number;
+  blinkRateAfter: number;
+  stabilityBefore: number;
+  stabilityAfter: number;
+}
+
+export async function signMeditationReceipt(
+  nullifierHash: string,
+  meditation: MeditationReceiptData,
+  walletProvider?: EIP1193Provider
+): Promise<WorkReceiptPayload> {
+  // Create session stats from meditation data
+  const stats: SessionStats = {
+    durationSeconds: meditation.durationSeconds,
+    apm: 0, // No typing during meditation
+    hrv: meditation.hrvAfter,
+    strain: 0,
+    focusScore: meditation.depthScore,
+  };
+
+  // Sign using existing signWorkReceipt with type 'meditation'
+  const receipt = await signWorkReceipt(
+    nullifierHash,
+    stats,
+    0, // no prev strain
+    undefined, // no vision metrics needed
+    'meditation',
+    walletProvider
+  );
+
+  // Add meditation-specific data to the receipt
+  (receipt as any).meditationData = {
+    depthScore: meditation.depthScore,
+    coherenceScore: meditation.coherenceScore,
+    neuralDelta: {
+      hrv: { before: meditation.hrvBefore, after: meditation.hrvAfter },
+      blinkRate: { before: meditation.blinkRateBefore, after: meditation.blinkRateAfter },
+      stability: { before: meditation.stabilityBefore, after: meditation.stabilityAfter },
+    },
+  };
+
+  console.log(`🧠 Neurotech: Meditation receipt signed — depth=${meditation.depthScore}, coherence=${meditation.coherenceScore}`);
+
+  return receipt;
 }
 
 /**

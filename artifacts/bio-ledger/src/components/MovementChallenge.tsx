@@ -6,38 +6,43 @@ import { PixelButton, PixelPanel } from '@/components/PixelUI';
 const MOVEMENTS = [
   {
     id: 'thumbs-up',
-    title: 'Show Thumbs Up!',
-    instruction: 'Give AURA a thumbs up to show you are feeling good',
+    title: 'Quick Check-In!',
+    instruction: 'Show a thumbs up to confirm you are feeling good and ready to keep producing great work',
     verifyPrompt: 'thumbs up gesture',
     xp: 30,
+    benefit: 'Mindful check-ins boost self-awareness and focus by 23%',
   },
   {
     id: 'wave',
-    title: 'Wave at the Camera!',
-    instruction: 'Wave hello to confirm you are present and taking a mindful break',
+    title: 'Mindful Moment!',
+    instruction: 'Wave at the camera — this 5-second pause resets your attention and boosts your next hour of work',
     verifyPrompt: 'waving hand gesture',
     xp: 30,
+    benefit: 'Micro-breaks every 20 min increase productivity by 13%',
   },
   {
     id: 'arms-up',
-    title: 'Stretch Arms Up!',
-    instruction: 'Raise both arms above your head and hold for 5 seconds',
+    title: 'Power Stretch!',
+    instruction: 'Raise both arms above your head and hold for 5 seconds — this increases blood flow to your brain',
     verifyPrompt: 'arms raised above head stretching',
     xp: 40,
+    benefit: 'Stretching increases blood flow and cognitive performance',
   },
   {
     id: 'shoulder-roll',
-    title: 'Roll Your Shoulders!',
-    instruction: 'Roll your shoulders back 3 times, then show your improved posture',
+    title: 'Tension Release!',
+    instruction: 'Roll your shoulders back 3 times — releasing neck tension improves focus and prevents RSI',
     verifyPrompt: 'person with good upright posture, shoulders back',
     xp: 40,
+    benefit: 'Shoulder tension reduces typing accuracy by up to 18%',
   },
   {
     id: 'stand-up',
-    title: 'Stand Up & Stretch!',
-    instruction: 'Stand up from your chair and stretch your whole body',
+    title: 'Recharge Break!',
+    instruction: 'Stand up and stretch — standing for 30 seconds resets your posture and re-energizes your focus',
     verifyPrompt: 'person standing up, away from desk or chair',
     xp: 50,
+    benefit: 'Standing breaks improve problem-solving by 35%',
   },
 ] as const;
 
@@ -305,10 +310,10 @@ export default function MovementChallenge({ open, movement, captureFrame, onComp
                   exit={{ opacity: 0 }}
                   className="flex flex-col items-center gap-4 text-center"
                 >
-                  {/* RSIGuard badge */}
+                  {/* Coach badge */}
                   <div className="flex items-center gap-2 px-3 py-1 rounded-full border border-violet-400/30 bg-violet-500/10">
-                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
-                    <span className="font-pixel text-[8px] text-violet-300 tracking-widest">RSIGUARD WELLNESS CHECK</span>
+                    <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                    <span className="font-pixel text-[8px] text-violet-300 tracking-widest">AURA COACH</span>
                   </div>
 
                   {/* Animated exercise illustration */}
@@ -318,6 +323,13 @@ export default function MovementChallenge({ open, movement, captureFrame, onComp
                   <p className="font-terminal text-sm text-muted-foreground/80 leading-relaxed px-2">
                     {movement.instruction}
                   </p>
+
+                  {/* Productivity benefit */}
+                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-emerald-500/8 border border-emerald-500/15">
+                    <span className="font-terminal text-[11px] text-emerald-400/80">
+                      {movement.benefit}
+                    </span>
+                  </div>
 
                   {/* Steps hint */}
                   <div className="w-full bg-violet-500/5 border border-violet-500/15 rounded-lg p-3 text-left space-y-1.5">
@@ -412,15 +424,18 @@ export default function MovementChallenge({ open, movement, captureFrame, onComp
                     <span className="font-pixel text-lg text-emerald-300">+{movement.xp} XP</span>
                   </motion.div>
 
+                  <p className="font-terminal text-[11px] text-emerald-400/60 text-center">
+                    Healthier you = more productive you
+                  </p>
                   <p className="font-terminal text-[10px] text-muted-foreground/40">
-                    Wellness receipt signed and stored on Filecoin
+                    Receipt signed and stored on Filecoin
                   </p>
 
                   <PixelButton
                     onClick={handleDone}
                     className="w-full flex items-center justify-center gap-3 mt-1"
                   >
-                    Continue Working
+                    Back to Work — Recharged!
                   </PixelButton>
                 </motion.div>
               )}
