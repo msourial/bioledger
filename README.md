@@ -12,17 +12,15 @@ You can be productive AND healthy — they fuel each other. AURA Bio-Ledger is t
 
 ## Bounty Architecture Matrix
 
-| Bounty / Track | Prize | Integration | Key File |
-|---|---|---|---|
-| **ERC-8004: Agents with Receipts** | $4,004 | AURA agent signs ERC-8004 receipts (HMAC-SHA256 + `agent_signature`), manifest at `/api/aura/manifest`, execution logs at `/api/aura/logs` | `artifacts/bio-ledger/src/lib/companion-agent.ts` |
-| **ERC-8004: Let the Agent Cook** | $4,000 | Autonomous wellness coaching with Gemini 2.5 Flash, vision-verified movement challenges, 3 personality modes, proactive RSI nudges | `artifacts/api-server/src/routes/aura.ts` |
-| **AI & Robotics Track** | $6,000 | Real-time MediaPipe Face + Pose Landmarker (on-device), Gemini chat + vision, RSIGuard risk engine, 10 wellness challenge types | `artifacts/bio-ledger/src/hooks/use-camera.ts` |
-| **Infrastructure & Digital Rights** | $6,000 | World ID ZK proofs (anti-sybil), Privy embedded wallet (Flow EVM), data sovereignty, nullifier-based identity | `artifacts/bio-ledger/src/pages/LockScreen.tsx` |
-| **Neurotech Track** | $6,000 | RSIGuard neuromuscular strain prevention, keystroke/mouse/posture monitoring, repetitive strain injury detection, forced wellness breaks | `artifacts/bio-ledger/src/hooks/use-rsi-risk.ts` |
-| **Filecoin: Autonomous Agent Infra** | $2,500 | Storacha SDK uploads signed receipts to Filecoin warm storage, real CIDs, IPFS gateway URLs | `artifacts/api-server/src/routes/filecoin.ts` |
-| **Storacha: Decentralized Storage** | $500 | `@storacha/client` SDK integration, receipt JSON permanently stored | `artifacts/api-server/src/routes/filecoin.ts` |
-
-**Total targetable: ~$29,004**
+| Bounty / Track | Integration | Key File |
+|---|---|---|
+| **ERC-8004: Agents with Receipts** | AURA agent signs ERC-8004 receipts (HMAC-SHA256 + `agent_signature`), manifest at `/api/aura/manifest`, execution logs at `/api/aura/logs` | `companion-agent.ts` |
+| **ERC-8004: Let the Agent Cook** | Autonomous wellness coaching with Gemini 2.5 Flash, vision-verified movement challenges, 3 personality modes, proactive RSI nudges | `aura.ts` |
+| **AI & Robotics Track** | Real-time MediaPipe Face + Pose Landmarker (on-device), Gemini chat + vision, RSIGuard risk engine, 10 wellness challenge types | `use-camera.ts` |
+| **Infrastructure & Digital Rights** | World ID ZK proofs (anti-sybil), Privy embedded wallet (Flow EVM), data sovereignty, nullifier-based identity | `LockScreen.tsx` |
+| **Neurotech Track** | RSIGuard neuromuscular strain prevention, keystroke/mouse/posture monitoring, repetitive strain injury detection, forced wellness breaks | `use-rsi-risk.ts` |
+| **Filecoin: Autonomous Agent Infra** | Storacha SDK uploads signed receipts to Filecoin warm storage, real CIDs, IPFS gateway URLs | `filecoin.ts` |
+| **Storacha: Decentralized Storage** | `@storacha/client` SDK integration, receipt JSON permanently stored | `filecoin.ts` |
 
 ---
 
